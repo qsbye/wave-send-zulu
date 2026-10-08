@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>AirScanQR</AssemblyName>
+    <RootNamespace>AirScanQR</RootNamespace>
+    <Product>AirScanQR 跨网传输助手</Product>
+    <Version>1.0.0</Version>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+    <EmbeddedResource Include="Assets\airscan-standard.html" LogicalName="AirScanQR.Assets.airscan-standard.html" />
+    <EmbeddedResource Include="Assets\airscan-fountain.html" LogicalName="AirScanQR.Assets.airscan-fountain.html" />
+    <EmbeddedResource Include="Assets\decimen-v0.5.3-sender.html" LogicalName="AirScanQR.Assets.decimen-v0.5.3-sender.html" />
+    <EmbeddedResource Include="Assets\decimen-v0.5.3-receiver.html" LogicalName="AirScanQR.Assets.decimen-v0.5.3-receiver.html" />
+  </ItemGroup>
+
+  <!-- WebView2 包会无条件引用其 WPF 程序集，本应用为 WinForms，移除该引用以避免 WindowsBase 版本冲突警告 -->
+  <Target Name="RemoveWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <_WebView2WpfRef Include="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+      <Reference Remove="@(_WebView2WpfRef)" />
+    </ItemGroup>
+  </Target>
+
+</Project>
