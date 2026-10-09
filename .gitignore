@@ -17,3 +17,7 @@ publish/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Session exports / logs
+kimi-export-session_*.md
+*.log
