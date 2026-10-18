@@ -15,6 +15,18 @@ description: 将 AirFountainZulu 新版本发布/更新到 F-Droid。当用户�
 - fdroiddata fork：`qsbye1/fdroiddata`（已 fork 自 `fdroid/fdroiddata`）
 - GitLab PAT（`api` 权限域），通过用户输入提供，不持久化
 
+## 核心原则：本地验证无误后再推送 MR
+
+**每次修改 metadata 后，必须先在本地用 Docker buildserver 完整验证 `fdroid build` 通过，才能推送到 fdroiddata 并请求维护者触发 CI。** 维护者时间宝贵，不要把未验证的改动丢给 CI 去试错。
+
+验证矩阵（每次推送 MR 前必须全部通过）：
+- [ ] `fdroid lint com.airscan.qr` 无错误
+- [ ] Docker buildserver `fdroid build` 出现 `BUILD SUCCESSFUL`
+- [ ] 若启用了 `Binaries`/`AllowedAPKSigningKeys`，日志出现 `compared built binary to supplied reference binary successfully`（RB 验证通过）
+- [ ] 0 个 `ERROR`（scanner 的 ZIP/JAR 拒绝、签名不匹配等都算失败）
+
+只有全部通过后，才执行第 3 步（推送 fdroiddata + 评论请求 CI）。本地验证中发现的问题（wrapper 缺失、ZIP 需 scandelete、签名密钥不匹配等）一律在本地修完再推。
+
 ## 流程
 
 ### 1. 源码侧准备新版本
@@ -101,6 +113,8 @@ CurrentVersionCode: <新 versionCode>
 > **`UpdateCheckMode: Tags` 的正则过滤**：本仓库存在历史 tag `v26.10.8.18-airfountain`（v 前缀），与现行纯数字 tag 格式混存。必须用 `UpdateCheckMode: Tags ^[0-9.]+$` 限定只匹配纯数字点分 tag，否则自动更新可能匹配到旧 tag。凡仓库有杂散历史 tag 的都需加正则（参考 Palimpsest 的 `Tags ^v[\d.]+$`）。
 
 ### 3. 推送到 fdroiddata 并提 MR
+
+> **⚠️ 前置闸门**：执行本步骤前，必须确认上方「核心原则」的验证矩阵全部通过（lint + Docker build + RB 验证）。未通过本地验证就推送 MR 是浪费维护者时间的行为。
 
 **(a) 浅克隆 fdroiddata**（如已有 `/tmp/fdroiddata` 可复用，先 `git fetch` + `git checkout master` + `git pull`）：
 
@@ -212,6 +226,16 @@ curl -s --request POST --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
 
 维护者触发 CI 后，第一时间在评论逐条解释 Reports tab 中的 info notes（即使无 warning/error）——权限用途（如 CAMERA/RECORD_AUDIO）、AndroidX 自动注入的权限、ABI/native 库大小与不做 abi split 的理由、R8/minify 标记等。52314 作者用一条结构化评论解释 6 条 info notes 后 MR 即进入 review-requested 队列。
 
+> **⚠️ 评论前必读 MR 全部互动**：每次要发新评论或修改 MR 前，**必须先用 API 拉取该 MR 的所有 notes（评论）并通读一遍**，确认维护者最新的要求、已讨论过的点、是否已有其他贡献者回复。避免出现"维护者刚要求加 Binaries，你却还在重复请求触发 CI"这种打脸情况。
+>
+> ```bash
+> curl -s --header "PRIVATE-TOKEN: $TOKEN" \
+>   "https://gitlab.com/api/v4/projects/36528/merge_requests/<iid>/notes?per_page=100&sort=asc" \
+>   | python3 -c "import sys,json; [print(f\"[{n['author']['username']}] {n['body'][:200]}\") for n in json.load(sys.stdin)]"
+> ```
+>
+> 要点：① 按时间正序读；② 重点看维护者（linsui 等）最新一条评论的具体要求；③ 新评论要直接回应最新要求，不要重复已解决的问题。
+
 ### 失败案例（已关闭 MR 的常见死因，2026-10 抽样）
 
 提交前对照自查。被关闭不等于终结——多数死因修复后可重新打开或重开 MR 并引用旧编号。
@@ -317,6 +341,7 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 15. **GitLab MR API 用 target project ID**：MR 存在于目标项目 `fdroid/fdroiddata`（ID `36528`），而非 fork（`87775010`）。发评论/查状态用 `https://gitlab.com/api/v4/projects/36528/merge_requests/<iid>/notes`，用 fork ID 会 404
 16. **GitHub Release 必须与 yml commit 对齐**：F-Droid `UpdateCheckMode: Tags` 依赖 tag，GitHub Release 也应指向同一 tag/commit。若最新 Release 版本落后于 yml，需为当前 tag 创建 GitHub Release（`gh release create <tag> <apk> --title "..." --notes "..." --target <branch>`），并确认 tag 与 yml `commit` 完全一致
 17. **aapt2 daemon 启动死锁**：本地 Gradle 构建偶尔出现多个 WorkerExecutor 线程卡在 `Aapt2DaemonImpl.startProcess`（0 CPU、无产出）。处理：杀 gradlew + aapt2 进程，`gradle --stop`，清理 `~/.gradle/caches/**/*.lock`，用 `--no-daemon` 重跑
+18. **评论/改 MR 前必读全部互动**：每次要发新评论或修改 MR 前，必须先拉取该 MR 的所有 notes 通读（API 见流程 (e) 部分），确认维护者最新要求和已讨论过的点。**禁止不看上下文就发评论**——例如维护者刚要求加 `Binaries`/`AllowedAPKSigningKeys`，你却还在重复请求触发 CI，会显得没在跟进讨论。新评论应直接回应维护者最新一条评论的具体要求
 
 ## 进阶：可复现构建（Reproducible Builds）
 

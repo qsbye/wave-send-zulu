@@ -1,0 +1,354 @@
+Action Game:
+  name: Action Game
+  description: Action, sport, racing and platformer games
+AI Chat:
+  name: AI Chat
+  description: AI assistants, chatbots, and large language model (LLM) interfaces
+Alarm Clock:
+  name: Alarm Clock
+  description: Set an alarm on a time
+Ambient Sound:
+  name: Ambient Sound
+  description: Play ambient sound, noise
+App Manager:
+  name: App Manager
+  description: Manage, organize, and control installed apps, intents, permissions
+App Store & Updater:
+  name: App Store & Updater
+  description: Discover, install, and update apps from software repositories
+Audiobook:
+  name: Audiobook
+  description: Audiobook manager and player
+Battery:
+  name: Battery
+  description: Monitor and optimize battery life, power usage, and charging
+Board Game:
+  name: Board Game
+  description: Board game, chess, go, tic-tac-toe
+Bookmark:
+  name: Bookmark
+  description: Save, organize, and manage favorite links and reading lists
+Browser:
+  name: Browser
+  description: Web browsers for surfing the internet and viewing websites
+Calculator:
+  name: Calculator
+  description: Arithmetic, scientific, and mathematical calculation tools
+Calendar & Agenda:
+  name: Calendar & Agenda
+  description: Schedule events, reminders, appointments, and daily planners
+Camera:
+  name: Camera
+  description: Camera, IP camera viewer and video recorder
+Card Game:
+  name: Card Game
+  description: Card game, solitaire
+Cast:
+  name: Cast
+  description: Cast, UPnP, DLNA, FCast, AirPlay, Miracast
+Casual Game:
+  name: Casual Game
+  description: Simple casual game
+Clock:
+  name: Clock
+  description: Tell the current time
+Cloud Storage & File Sync:
+  name: Cloud Storage & File Sync
+  description: Backup, sync, and access files remotely via cloud services
+Code & Forge:
+  name: Code & Forge
+  description: Git, source code hosting, forge
+Connectivity:
+  icon: category_connectivity.png
+  name: Connectivity
+Contact:
+  name: Contact
+  description: Address book, phonebook, and people management apps
+Covid:
+  name: Covid
+  description: Trace covid
+Development:
+  icon: category_development.png
+  name: Development
+  description: Coding, programming, IDE, terminal, and developer tools
+Dice:
+  name: Dice
+  description: Random selector
+Diet:
+  name: Diet
+  description: Nutrition, calorie, food management and tracker
+DNS & Hosts:
+  name: DNS & Hosts
+  description: Configure DNS resolvers, ad blocking, hosts file, and domain routing
+Download:
+  name: Download
+  description: Downloader, download manager, and torrent client
+Draw:
+  name: Draw
+  description: Sketching, painting, illustration, and digital art canvas apps
+Ebook Reader:
+  name: Ebook Reader
+  description: Read ebooks, EPUB, PDF, and digital books and publications
+Educational Game:
+  name: Educational Game
+  description: Learn in game, quiz
+Email:
+  name: Email
+  description: Mail clients for sending, receiving, and managing email messages
+Emergency Action:
+  name: Emergency Action
+  description: Panic, emergency action
+Emulator:
+  name: Emulator
+  description: Emulator running game and program
+File Encryption & Vault:
+  name: File Encryption & Vault
+  description: Encrypt, lock, and hide private files and folders
+File Manager:
+  name: File Manager
+  description: File manager and explorer
+File Transfer:
+  name: File Transfer
+  description: Share and transfer files via FTP, LAN, Bluetooth, or peer-to-peer (p2p)
+Finance Manager:
+  name: Finance Manager
+  description: Track expenses, budgets, income, and personal financial accounts
+Firewall:
+  name: Firewall
+  description: Block unwanted network traffic and control app's internet access
+Flashlight:
+  name: Flashlight
+  description: Torch and LED flash light apps
+Forum:
+  name: Forum
+  description: Discussion boards, community threads, and Q&A platforms
+Gallery:
+  name: Gallery
+  description: Browse, view, and organize photos, images, and videos
+Game Helper:
+  name: Game Helper
+  description: Game helper, assistant, companion, score board, timer
+Graphics:
+  icon: category_graphics.png
+  name: Graphics
+  description: Image editing, photo manipulation, and visual design tools
+Habit Tracker:
+  name: Habit Tracker
+  description: Build routines, track daily goals, and monitor personal streaks
+Health Manager:
+  name: Health Manager
+  description: Manager weight, heart rate, blood pressure, menstruation and other health metrics
+Icon Pack:
+  name: Icon Pack
+  description: Custom icon sets to style and theme app icons
+Internet:
+  icon: category_internet.png
+  name: Internet
+Inventory:
+  name: Inventory
+  description: Track, catalog, and manage physical items and stock
+Keyboard & IME:
+  name: Keyboard & IME
+  description: Custom keyboards, input methods, autocorrect, and typing apps
+Launcher:
+  name: Launcher
+  description: Home screen replacements and desktop environment apps
+Local Media Player:
+  name: Local Media Player
+  description: Play offline audio and video files stored on your device
+Location Tracker & Sharer:
+  name: Location Tracker & Sharer
+  description: Share and monitor real-time GPS location with others
+Lyrics:
+  name: Lyrics
+  description: View and search lyrics
+Market & Price:
+  name: Market & Price
+  description: Price, exchange rate, stock
+Medication:
+  name: Medication
+  description: Medication, pill, drug reminder and manager
+Meditation:
+  name: Meditation
+  description: Meditation, mindfulness, breathing practice
+Mental Health:
+  name: Mental Health
+  description: Mood tracker
+Messaging:
+  name: Messaging
+  description: Instant messaging, chat, and SMS communication apps
+Multimedia:
+  name: Multimedia
+Music Practice Tool:
+  name: Music Practice Tool
+  description: Tuners, metronomes, chord tools, and instrument practice aids
+Navigation:
+  icon: category_navigation.png
+  name: Navigation
+  description: Maps, GPS, turn-by-turn directions, and route planning apps
+Network Analyzer:
+  name: Network Analyzer
+  description: Diagnose Wi-Fi, scan networks, and monitor connection performance
+News:
+  name: News
+  description: Latest headlines, articles, RSS feeds, and news aggregators
+Note:
+  name: Note
+  description: Notepads, memos, and quick note-taking and organization apps
+Notification:
+  name: Notification
+  description: Notification manager, logger, redirector, enhancer
+OCR:
+  name: OCR
+  description: Document scanner, optical character recognition
+Online Media Player:
+  name: Online Media Player
+  description: Stream music, videos, and live content from the internet
+Party Game:
+  name: Party Game
+  description: Multi-player, party game
+Pass Wallet:
+  name: Pass Wallet
+  description: Store boarding passes, tickets, loyalty cards, and coupons
+Password & 2FA:
+  name: Password & 2FA
+  description: Password managers, authenticators, OTP, TOTP, HOTP, U2F, FIDO and two-factor security tools
+Phone & SMS:
+  name: Phone & SMS
+  description: Dialers, call managers, and text messaging utilities
+Platformer Game:
+  name: Platformer Game
+  description: Platformer, side scrolling game
+Podcast:
+  name: Podcast
+  description: Subscribe to, stream, and download podcast audio episodes and shows
+Public Transport:
+  name: Public Transport
+  description: Bus, train, metro, and transit schedules and journey planners
+Push:
+  name: Push
+  description: Push messages
+Puzzle Game:
+  name: Puzzle Game
+  description: Puzzle, sudoku, memory game
+Radio:
+  name: Radio
+  description: Stream live FM/AM radio stations and internet radio broadcasts
+Reading:
+  icon: category_reading.png
+  name: Reading
+  description: Articles, long-form content, read-it-later, and web reader apps
+Recipe Manager:
+  name: Recipe Manager
+  description: Store, organize, and discover cooking recipes and meal ideas
+Recorder:
+  name: Recorder
+  description: Audio, screen, call recorder
+Religion:
+  name: Religion
+  description: Prayer times, holy texts, devotionals, and spiritual practice apps
+Role-Playing Game:
+  name: Role-playing Game
+  description: RPG, rogue-like
+Remote Access:
+  name: Remote Access
+  description: Control desktops, servers, and devices remotely via RDP, VNC, or SSH
+Remote Controller:
+  name: Remote Controller
+  description: IR and smart home remotes for TVs, AC units, and other devices
+Schedule:
+  name: Schedule
+  description: Schedule for conference and event
+Science & Education:
+  icon: category_science_education.png
+  name: Science & Education
+  description: Learning, studying, reference, and educational apps
+Security:
+  icon: category_security.png
+  name: Security
+Shooter Game:
+  name: Shooter Game
+  description: Shooting target
+Strategy Game:
+  name: Strategy Game
+  description: Strategy, simulation
+Shopping List:
+  name: Shopping List
+  description: Grocery lists, to-buy trackers, and collaborative shopping apps
+Social Network:
+  name: Social Network
+  description: Social media, microblogging, and online community platforms
+Speech Recognizer:
+  name: Speech Recognizer
+  description: Speech recognizer, speech to text, voice input, transcription and recognition
+Sport Game:
+  name: Sport Game
+  description: Sport Games
+Sports & Health:
+  name: Sports & Health
+  description: Fitness tracking, wellness, sports scores, and health monitoring
+Stopwatch:
+  name: Stopwatch
+  description: Measure progress, elapsed, lap timer
+System:
+  icon: category_system.png
+  name: System
+Task:
+  name: Task
+  description: To-do lists, task managers, and productivity and GTD tools
+Text Encryption:
+  name: Text Encryption
+  description: Encrypt text
+Text Editor:
+  name: Text Editor
+  description: Plain text editors, Markdown editors, and writing tools
+Text to Speech:
+  name: Text to Speech
+  description: TTS tools
+Theming:
+  icon: category_theming.png
+  name: Theming
+  description: Customize your device's look with themes, fonts, and UI styles
+Time Tracker:
+  name: Time Tracker
+  description: Track time usage on activities and screen time
+Timer:
+  name: Timer
+  description: Interval timing, timekeeping, countdown
+Translation & Dictionary:
+  name: Translation & Dictionary
+  description: Translate languages, look up words, and access vocabulary references
+Unit Convertor:
+  name: Unit Convertor
+  description: Convert between units of length, weight, temperature, currency, and more
+Visual Novel:
+  name: Visual Novel
+  description: Visual Novel, galgame, story game
+Voice & Video Chat:
+  name: Voice & Video Chat
+  description: Audio and video calling, conferencing, and VoIP communication apps
+Volume:
+  name: Volume
+  description: Manage volume setting
+VPN & Proxy:
+  name: VPN & Proxy
+  description: Encrypt traffic, bypass restrictions (circumvention) and anonymize your connection
+Wallet:
+  name: Wallet
+  description: Digital wallets for payments, cards, and cryptocurrency management
+Wallpaper:
+  name: Wallpaper
+  description: Home screen and lock screen background and live wallpaper apps
+Weather:
+  name: Weather
+  description: Forecasts, radar, temperature, and atmospheric condition apps
+Word Game:
+  name: Word Game
+  description: Word puzzle game, crossword, word guessing
+Workout:
+  name: Workout
+  description: Exercise routines, gym tracking, running, and fitness training apps
+Writing:
+  icon: category_writing.png
+  name: Writing
+  description: Word processors, journaling, drafting, and long-form writing apps
