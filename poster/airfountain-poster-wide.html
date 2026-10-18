@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AirFountainZulu 项目宣传海报</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; letter-spacing: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+    background: #0b1220;
+    color: #e2e8f0;
+    position: relative;
+  }
+  /* 背景光波/声波曲线装饰 */
+  .waves { position: absolute; inset: 0; z-index: 0; opacity: 0.55; }
+  .poster { position: relative; z-index: 1; width: 1920px; height: 1080px; display: flex; flex-direction: column; padding: 38px 64px 28px; }
+
+  /* 标题区 */
+  .header { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+  .title-block { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .app-name { font-size: 60px; font-weight: 650; color: #f1f5f9; line-height: 1.15; white-space: nowrap; }
+  .app-name .glow { color: #22d3ee; }
+  .tagline { font-size: 25px; font-weight: 500; color: #94a3b8; white-space: nowrap; }
+  .tagline b { color: #cbd5e1; font-weight: 600; }
+  .badges { display: flex; gap: 14px; flex-shrink: 0; }
+  .badge {
+    font-size: 20px; font-weight: 600; color: #67e8f9; white-space: nowrap;
+    border: 1px solid #164e63; background: rgba(34,211,238,0.08);
+    border-radius: 999px; padding: 10px 22px;
+  }
+  .badge.alt { color: #6ee7b7; border-color: #065f46; background: rgba(52,211,153,0.08); }
+
+  /* 指标条 */
+  .metrics { display: flex; gap: 20px; margin-top: 24px; }
+  .metric {
+    flex: 1; background: rgba(17,26,46,0.92); border: 1px solid #1e293b;
+    border-radius: 16px; padding: 18px 24px; display: flex; align-items: center; gap: 16px;
+  }
+  .metric .icon { font-size: 36px; line-height: 1; }
+  .metric .value { font-size: 38px; font-weight: 650; color: #67e8f9; line-height: 1.1; white-space: nowrap; }
+  .metric .value.green { color: #6ee7b7; }
+  .metric .label { font-size: 19px; font-weight: 500; color: #94a3b8; margin-top: 5px; white-space: nowrap; }
+
+  /* 主张条 */
+  .thesis {
+    margin-top: 22px; text-align: center; font-size: 25px; font-weight: 600; color: #cbd5e1;
+    border-top: 1px solid #1e293b; border-bottom: 1px solid #1e293b; padding: 13px 0;
+  }
+  .thesis b { color: #22d3ee; font-weight: 650; }
+
+  /* 主内容区 */
+  .main { display: flex; gap: 34px; margin-top: 24px; flex: 1; min-height: 0; }
+
+  /* 截图墙 */
+  .shots { display: flex; gap: 24px; align-items: flex-start; flex-shrink: 0; }
+  .shot { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .phone {
+    width: 218px; height: 468px; border-radius: 20px; overflow: hidden;
+    border: 1px solid #334155; box-shadow: 0 0 40px rgba(34,211,238,0.16);
+    background: #0f172a;
+  }
+  .phone img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .caption { font-size: 18px; font-weight: 500; color: #94a3b8; text-align: center; width: 250px; line-height: 1.4; }
+  .caption b { color: #cbd5e1; font-weight: 600; }
+
+  /* 机制区 */
+  .mech { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .panel { background: rgba(17,26,46,0.92); border: 1px solid #1e293b; border-radius: 16px; padding: 18px 24px; }
+  .panel h3 { font-size: 23px; font-weight: 650; color: #7dd3fc; margin-bottom: 10px; }
+  table.layers { width: 100%; border-collapse: collapse; }
+  table.layers th { font-size: 19px; font-weight: 600; color: #94a3b8; text-align: left; padding: 6px 10px; border-bottom: 1px solid #1e293b; }
+  table.layers td { font-size: 20px; font-weight: 500; color: #cbd5e1; padding: 8px 10px; border-bottom: 1px solid rgba(30,41,59,0.6); white-space: nowrap; }
+  table.layers td.name { color: #f1f5f9; font-weight: 600; width: 140px; }
+  table.layers .cyan { color: #67e8f9; }
+  table.layers .green { color: #6ee7b7; }
+  table.layers tr:last-child td { border-bottom: none; }
+  table.layers td.span { text-align: center; color: #f1f5f9; font-weight: 600; }
+  .chain { display: flex; align-items: stretch; gap: 12px; }
+  .chain .step {
+    flex: 1; background: rgba(30,41,59,0.65); border: 1px solid #334155; border-radius: 12px;
+    padding: 12px 14px; text-align: center;
+  }
+  .chain .step .s1 { font-size: 20px; font-weight: 600; color: #e2e8f0; }
+  .chain .step .s2 { font-size: 17px; font-weight: 500; color: #94a3b8; margin-top: 5px; line-height: 1.4; }
+  .chain .arrow { font-size: 25px; color: #22d3ee; font-weight: 650; align-self: center; }
+  .panel .note { font-size: 20px; font-weight: 500; color: #cbd5e1; line-height: 1.55; }
+  .panel .note b { font-weight: 600; }
+  .panel .note .cyan { color: #67e8f9; font-weight: 600; }
+  .panel .note .green { color: #6ee7b7; font-weight: 600; }
+
+  /* 底部行动区 */
+  .cta {
+    margin-top: 22px; display: flex; align-items: center; justify-content: space-between; gap: 28px;
+    background: rgba(17,26,46,0.92); border: 1px solid #164e63; border-radius: 16px; padding: 16px 30px;
+  }
+  .cta .repo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .cta .repo .label { font-size: 18px; font-weight: 600; color: #64748b; }
+  .cta .repo .url { font-size: 29px; font-weight: 650; color: #67e8f9; white-space: nowrap; }
+  .cta .tips { font-size: 18px; font-weight: 500; color: #94a3b8; text-align: right; line-height: 1.5; flex-shrink: 0; }
+  .cta .tips b { color: #cbd5e1; font-weight: 600; }
+</style>
+</head>
+<body>
+<!-- 背景：上=光信道波，下=声波频谱包络曲线 -->
+<svg class="waves" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#22d3ee" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#34d399" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#34d399" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#34d399" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M0,140 C300,55 600,225 960,140 C1320,55 1620,225 1920,140" stroke="url(#g1)" stroke-width="2.5" fill="none"/>
+  <path d="M0,1015 C260,965 520,1060 760,1005 C1060,940 1360,1065 1920,990" stroke="url(#g2)" stroke-width="2.5" fill="none"/>
+  <path d="M0,1050 C320,1005 640,1082 960,1035 C1280,990 1600,1080 1920,1030" stroke="url(#g1)" stroke-width="2" fill="none" opacity="0.7"/>
+</svg>
+
+<div class="poster">
+  <!-- 标题区 -->
+  <div class="header">
+    <div class="title-block">
+      <div class="app-name">AirFountainZulu<span class="glow"> · 气隙喷泉码传输</span></div>
+      <div class="tagline">不依赖 Wi-Fi / 蓝牙 / USB / 网络 —— 仅凭<b>屏幕发光 + 摄像头拍摄</b>传文件，声波通道双信道互补</div>
+    </div>
+    <div class="badges">
+      <div class="badge">v26.10.18.1704</div>
+      <div class="badge alt">F-Droid FOSS · Apache-2.0</div>
+    </div>
+  </div>
+
+  <!-- 指标条 -->
+  <div class="metrics">
+    <div class="metric"><div class="icon">📡</div><div><div class="value">双信道</div><div class="label">二维码光通道 + ggwave 声波兜底</div></div></div>
+    <div class="metric"><div class="icon">🖥️</div><div><div class="value">三端兼容</div><div class="label">Android · Windows · Web</div></div></div>
+    <div class="metric"><div class="icon">✅</div><div><div class="value">72 项</div><div class="label">单元测试全绿</div></div></div>
+    <div class="metric"><div class="icon">📦</div><div><div class="value green">4.2 MB</div><div class="label">真机实测接收 9172 块</div></div></div>
+  </div>
+
+  <!-- 主张条 -->
+  <div class="thesis">丢帧、乱序、中途加入均无感 —— <b>喷泉码让信道只需多数帧送达</b>，任一信道丢帧由另一条自动补齐</div>
+
+  <!-- 主内容区 -->
+  <div class="main">
+    <!-- 截图墙 -->
+    <div class="shots">
+      <div class="shot">
+        <div class="phone"><img src="../screenshots/android-main.png" alt="接收页"></div>
+        <div class="caption"><b>接收页</b>：声波倒计时、频谱包络与进度详情实时刷新</div>
+      </div>
+      <div class="shot">
+        <div class="phone"><img src="../screenshots/android-qr-lock.png" alt="锁定框"></div>
+        <div class="caption"><b>蓝色虚线锁定框</b>：仿射贴合，跟随二维码旋转与透视</div>
+      </div>
+    </div>
+
+    <!-- 机制区 -->
+    <div class="mech">
+      <div class="panel">
+        <h3>分层模型：信道 → 调制 → 帧级编码</h3>
+        <table class="layers">
+          <tr><th style="width:140px"></th><th>光信道（屏幕 → 摄像头）</th><th>声波信道（扬声器 → 麦克风）</th></tr>
+          <tr><td class="name">调制方式</td><td>二维码 10–30 fps 逐帧刷新</td><td>多频 FSK（16 音调选 1）</td></tr>
+          <tr><td class="name">帧内纠错</td><td class="cyan">QR Reed-Solomon（ECC-L）</td><td class="green">RS(64, 24)，每段纠 12 字节</td></tr>
+          <tr><td class="name">帧级编码</td><td colspan="2" class="span">LT 喷泉码（两信道共用同一解码器）</td></tr>
+        </table>
+      </div>
+      <div class="panel">
+        <h3>三级集成解码链（屏幕拍摄强鲁棒）</h3>
+        <div class="chain">
+          <div class="step"><div class="s1">快路径</div><div class="s2">全帧 Hybrid / 全局直方图</div></div>
+          <div class="arrow">→</div>
+          <div class="step"><div class="s1">定位裁剪</div><div class="s2">半分辨率定位 + 外扩 25%</div></div>
+          <div class="arrow">→</div>
+          <div class="step"><div class="s1">Sauvola 兜底</div><div class="s2">局部自适应阈值抗眩光</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>接收即保存</h3>
+        <div class="note">SHA-256 校验通过自动存入 <span class="cyan">Download/AirFountainZulu/</span>；可关摄像头改纯声波接收，<span class="green">隔墙也能传</span>。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部行动区 -->
+  <div class="cta">
+    <div class="repo">
+      <div class="label">开源仓库 · GitHub</div>
+      <div class="url">https://github.com/qsbye/wave-send-zulu</div>
+    </div>
+    <div class="tips">
+      扫码距离建议 <b>25–35cm</b>（太近失焦）· 单文件 Web 版双击即用<br>
+      声波兜底约 13 B/s，主力吞吐由二维码承担
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://leon-gittech.github.io/Skill2Poster/sitemap.xml
