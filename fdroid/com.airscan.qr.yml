@@ -12,6 +12,8 @@ AutoName: AirFountainZulu
 RepoType: git
 Repo: https://github.com/qsbye/wave-send-zulu.git
 
+Binaries: https://github.com/qsbye/wave-send-zulu/releases/download/%v/AirFountainZulu-release-%v.apk
+
 Builds:
   - versionName: 26.10.18.18
     versionCode: 28
@@ -28,3 +30,4 @@ AutoUpdateMode: Version
 UpdateCheckMode: Tags ^[0-9.]+$
 CurrentVersion: 26.10.18.18
 CurrentVersionCode: 28
+AllowedAPKSigningKeys: 2fb54f5c4d01393ba9cdbe529a8df7d83b686056ed7b3aba63daba04c60f51bd
