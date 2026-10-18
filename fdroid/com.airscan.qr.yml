@@ -24,9 +24,9 @@ Builds:
     gradle:
       - yes
     prebuild:
+      # F-Droid 构建环境无本地签名密钥库，app/build.gradle 已做存在性判断，
+      # release 产物为未签名 APK，由 F-Droid 统一签名。
       - sed -i -e '/include .:desktop./d' -e '/include .:web./d' ../settings.gradle
-    # F-Droid 构建环境无本地签名密钥库，app/build.gradle 已做存在性判断，
-    # release 产物为未签名 APK，由 F-Droid 统一签名。
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
