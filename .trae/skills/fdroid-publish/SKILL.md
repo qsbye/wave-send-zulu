@@ -342,6 +342,7 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 16. **GitHub Release 必须与 yml commit 对齐**：F-Droid `UpdateCheckMode: Tags` 依赖 tag，GitHub Release 也应指向同一 tag/commit。若最新 Release 版本落后于 yml，需为当前 tag 创建 GitHub Release（`gh release create <tag> <apk> --title "..." --notes "..." --target <branch>`），并确认 tag 与 yml `commit` 完全一致
 17. **aapt2 daemon 启动死锁**：本地 Gradle 构建偶尔出现多个 WorkerExecutor 线程卡在 `Aapt2DaemonImpl.startProcess`（0 CPU、无产出）。处理：杀 gradlew + aapt2 进程，`gradle --stop`，清理 `~/.gradle/caches/**/*.lock`，用 `--no-daemon` 重跑
 18. **评论/改 MR 前必读全部互动**：每次要发新评论或修改 MR 前，必须先拉取该 MR 的所有 notes 通读（API 见流程 (e) 部分），确认维护者最新要求和已讨论过的点。**禁止不看上下文就发评论**——例如维护者刚要求加 `Binaries`/`AllowedAPKSigningKeys`，你却还在重复请求触发 CI，会显得没在跟进讨论。新评论应直接回应维护者最新一条评论的具体要求
+19. **维护者要求 Squash commits 时压缩为单提交**：F-Droid 偏好每个 App MR 只有一个提交。收到 "Please enable Squash commits" 时，两步都做：① 本地把分支压缩成单提交（`git reset --hard origin/master` 后重新 `git add` + `git commit`，再 `--force` 推到 fork 分支）；② 通过 API 启用 MR 设置 `PUT /projects/36528/merge_requests/<iid>` body `{"squash": true, "squash_on_merge": true}`。验证：MR commits 接口只剩 1 条
 
 ## 进阶：可复现构建（Reproducible Builds）
 
