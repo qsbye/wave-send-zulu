@@ -56,8 +56,8 @@ private class SenderState {
     var fileInfo by mutableStateOf("")
     var error by mutableStateOf<String?>(null)
 
-    var blockLen by mutableIntStateOf(1000)
-    var fps by mutableIntStateOf(15)
+    var blockLen by mutableIntStateOf(500)
+    var fps by mutableIntStateOf(10)
 
     var sending by mutableStateOf(false)
     var seq by mutableLongStateOf(0L)
