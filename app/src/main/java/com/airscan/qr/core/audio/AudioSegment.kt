@@ -27,6 +27,13 @@ object AudioSegment {
     const val SEGMENT_BYTES = 64          // ggwave 固定帧长
     const val HEADER_BYTES = 14
     const val PAYLOAD_BYTES = SEGMENT_BYTES - HEADER_BYTES   // 50
+
+    /**
+     * 单段传输耗时估计（秒，Fast 档）：64B 段经 RS(64,24) 得 88B 码字，
+     * 按 3B/块分 30 块 × 每块 6 音频帧 × 1024 样本 / 48 kHz ≈ 3.84 s。
+     * 用于“预计 x 秒后锁定”提示。
+     */
+    const val SEGMENT_DURATION_SEC = 3.84f
     const val MAGIC0 = 0x41   // 'A'
     const val MAGIC1 = 0x53   // 'S'
     const val VERSION = 1
@@ -128,9 +135,18 @@ object AudioSegment {
             var gotCount = 0
         }
 
+        /** 当前半成品帧的重组进度快照（跨线程读取用，无半成品时为 null）。 */
+        data class PendingInfo(val segCount: Int, val gotCount: Int)
+
+        @Volatile
+        private var pendingSnapshot: PendingInfo? = null
+
         private var currentSession = -1
         private var currentSeq = -1L
         private var partial: Partial? = null
+
+        /** 取当前半成品帧的重组进度（供 UI 显示“预计 x 秒后锁定”）。 */
+        fun pending(): PendingInfo? = pendingSnapshot
 
         /** 喂入一个段；若因此拼齐一帧则返回该帧，否则返回 null。 */
         fun feed(seg: Segment): ByteArray? {
@@ -151,6 +167,8 @@ object AudioSegment {
                 val n = minOf(PAYLOAD_BYTES, p.frameLen - dstOff)
                 System.arraycopy(seg.payload, 0, p.data, dstOff, n)
             }
+            pendingSnapshot =
+                if (p.gotCount == p.segCount) null else PendingInfo(p.segCount, p.gotCount)
             return if (p.gotCount == p.segCount) {
                 val done = p.data
                 partial = null
@@ -162,6 +180,7 @@ object AudioSegment {
             partial = null
             currentSession = -1
             currentSeq = -1L
+            pendingSnapshot = null
         }
     }
 }

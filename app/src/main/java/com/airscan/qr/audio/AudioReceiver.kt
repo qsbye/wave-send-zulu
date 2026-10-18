@@ -79,6 +79,9 @@ class AudioReceiver(
         out
     }
 
+    /** 当前半成品帧的重组进度（供“预计 x 秒后锁定”提示），无则为 null。 */
+    fun pendingFrame(): AudioSegment.Reassembler.PendingInfo? = reassembler.pending()
+
     private fun pushLevel(v: Float) {
         synchronized(levelLock) {
             levels[levelPos] = v

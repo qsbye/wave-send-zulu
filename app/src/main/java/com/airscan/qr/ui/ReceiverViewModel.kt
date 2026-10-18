@@ -9,6 +9,7 @@ import com.airscan.qr.core.Container
 import com.airscan.qr.core.FrameHeader
 import com.airscan.qr.core.FrameVerdict
 import com.airscan.qr.core.LTDecoder
+import com.airscan.qr.core.audio.AudioSegment
 import com.airscan.qr.core.classifyFrame
 import com.airscan.qr.core.fnv1a
 import com.airscan.qr.core.frameVerdictMessage
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.ceil
 
 data class CompletedFile(
     val name: String,
@@ -57,6 +59,9 @@ data class ReceiverUiState(
     val audioReceiving: Boolean = false,
     val audioLevels: List<Float> = emptyList(),
     val audioError: String? = null,
+    // ---- 预计剩余时间（-1 = 暂无估计） ----
+    val etaSeconds: Int = -1,
+    val audioLockEta: Int = -1,
 )
 
 class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
@@ -75,6 +80,44 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
     /** 切换摄像头接收；关闭后仅用声波通道，省电。 */
     fun setCameraEnabled(enabled: Boolean) {
         _state.update { it.copy(cameraEnabled = enabled) }
+    }
+
+    init {
+        // 常驻节拍：估算传输剩余时间与声波锁定剩余时间
+        viewModelScope.launch(Dispatchers.Default) {
+            val window = ArrayDeque<Pair<Long, Int>>() // (时间戳, 已收唯一帧数)
+            while (isActive) {
+                delay(250)
+                val now = System.currentTimeMillis()
+                val st = _state.value
+
+                // 传输 ETA：6s 滑动窗口估计唯一帧到达速率 -> 剩余帧数/速率
+                window.addLast(now to st.uniqueFrames)
+                while (window.size > 2 && now - window.first().first > 6000) window.removeFirst()
+                var eta = -1
+                if (st.locked && st.completed == null && st.k > 0) {
+                    val (t0, f0) = window.first()
+                    val dt = (now - t0) / 1000f
+                    val rate = if (dt > 0.5f) (st.uniqueFrames - f0) / dt else 0f
+                    if (rate > 0.01f) {
+                        eta = ceil((st.k - st.uniqueFrames) / rate).toInt().coerceIn(1, 86400)
+                    }
+                }
+
+                // 声波锁定 ETA：未锁定且声波有半成品帧时，按剩余段数 × 单段耗时估计
+                var lockEta = -1
+                audioReceiver?.let { rx ->
+                    val p = rx.pendingFrame()
+                    if (p != null && p.gotCount < p.segCount) {
+                        lockEta = ceil((p.segCount - p.gotCount) * AudioSegment.SEGMENT_DURATION_SEC).toInt()
+                    }
+                }
+
+                if (eta != _state.value.etaSeconds || lockEta != _state.value.audioLockEta) {
+                    _state.update { it.copy(etaSeconds = eta, audioLockEta = lockEta) }
+                }
+            }
+        }
     }
 
     /** 切换声波接收开关（UI 层须先确保 RECORD_AUDIO 权限已授予）。 */

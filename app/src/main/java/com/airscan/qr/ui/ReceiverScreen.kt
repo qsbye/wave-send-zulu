@@ -165,7 +165,7 @@ private fun fmtBytes(bytes: Long): String = when {
 private fun CameraToggleCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xEE101418)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xCC101418)),
     ) {
         Row(
             Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -198,7 +198,7 @@ private fun AudioReceiverCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xEE101418),
+            containerColor = Color(0xCC101418),
         ),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -213,6 +213,8 @@ private fun AudioReceiverCard(
                     Text(
                         text = when {
                             !state.audioEnabled -> "与摄像头同时接收，双通道互补"
+                            state.audioReceiving && state.audioLockEta > 0 ->
+                                "正在接收声波信号…预计 ${state.audioLockEta}s 后锁定（需收齐一帧全部段，每段约 3.8s）"
                             state.audioReceiving -> "正在接收声波信号…"
                             else -> "监听中，未检测到声波信号"
                         },
@@ -271,7 +273,7 @@ private fun ReceiveStatusCard(state: ReceiverUiState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xEE101418),
+            containerColor = Color(0xCC101418),
         ),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -286,6 +288,14 @@ private fun ReceiveStatusCard(state: ReceiverUiState) {
                     progress = { state.progress },
                     modifier = Modifier.fillMaxWidth().height(8.dp),
                 )
+                if (state.etaSeconds > 0 && state.completed == null) {
+                    Text(
+                        "预计剩余约 ${state.etaSeconds} 秒",
+                        color = Color(0xFF4CD97B),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
                 Text(
                     text = buildString {
                         append("会话 #%04X".format(state.sessionId))
