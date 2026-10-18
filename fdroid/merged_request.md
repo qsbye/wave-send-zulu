@@ -19,7 +19,13 @@ On completion the file is SHA-256-verified and saved automatically to `Download/
 
 ### Please elaborate why you wrote this app. Please highlight the unique functions it provides over other similar apps in F-Droid.
 
-LocalSend, KDE Connect and similar tools all need both devices on the same network. Managed machines in restricted environments (no Wi-Fi, no USB data, no accounts, no installs on one side) cannot use them at all. AirFountainZulu needs nothing but a screen on one side and a camera on the other. As far as I know, no app in F-Droid combines fountain-coded QR streaming with an acoustic fallback channel for file transfer; existing QR apps are scanners or one-shot generators, not file-transfer tools. The wire format is compatible with the decimen v3 protocol and documented in the repository README; the codec core is shared verbatim across the Android, Windows and Web implementations, with 72 unit tests covering the Reed–Solomon, FFT, fountain-code and QR round-trip paths.
+There is already [CimBar Scanner](https://f-droid.org/packages/com.nfcarchiver.cimbar/) in F-Droid, an excellent screen-to-camera file transfer app using its own colored-tile matrix format. AirFountainZulu takes a different approach and complements it rather than replacing it:
+
+- **Standard QR codes as the optical carrier**, decoded with ZXing. No proprietary color-tile format — any camera and any QR decoder can reason about the frames, and the fountain code layer tolerates dropped frames just like CimBar's repair frames.
+- **A second, independent acoustic channel** (speaker → microphone, pure-Kotlin ggwave-style multi-tone FSK) runs in parallel with the QR stream. Frames lost on one channel are filled in by the other, so transfer continues when the camera is briefly obstructed, and the receiver can disable the camera and receive over sound alone — including [through a wall](https://github.com/qsbye/wave-send-zulu/blob/ggwave-fountain-android/README.md). CimBar is camera-only.
+- **Three send-side implementations sharing the codec core**: the Android receiver, a .NET 8 WinForms desktop tool, and a single-file Web page (double-click, no server). All speak the same decimen-v3-compatible wire format, so a Windows machine can send to an Android phone, or a browser tab to a phone, with no installs on the sending side.
+
+As far as I know no app in F-Droid combines a standard-QR optical channel with an acoustic fallback and a shared cross-platform codec; the existing optical-transfer apps are either single-channel camera apps or use a proprietary barcode format.
 
 ## Checklist
 
