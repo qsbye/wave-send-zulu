@@ -10,6 +10,7 @@
 - **自描述帧**：每帧携带完整 22 字节头部，无需握手协议，中途锁定流
 - **DCF2 容器**：自动保留文件名/MIME 类型，可选 gzip 压缩，SHA-256 完整性校验
 - **声波通道**：纯 Kotlin 全量移植 [ggwave](https://github.com/ggerganov/ggwave)，大帧拆 64B 声波段传输、接收端重组还原原始帧，与二维码通道共用同一 LT 解码器
+- **声波可视化与省电开关**：收发两端实时贝塞尔频谱包络曲线（Catmull-Rom 平滑），接收页附进度详情（进度/新帧/重复/冗余/会话/块数）；接收端可关闭摄像头改纯声波接收省电
 - **跨平台**：Android（Jetpack Compose）+ Windows 桌面（Compose Multiplatform），两端逐位兼容，声波协议亦可跨端互通
 - **单文件桌面版**：.NET 4 启动器内嵌完整运行时，双击即用
 
@@ -59,7 +60,7 @@ AirFountainZulu/
 | 桌面端 | Compose Multiplatform 1.7.0 (JVM) |
 | 喷泉码 | 自研 LT 编解码（与 decimen v3 线格式兼容） |
 | 声波调制 | ggwave 纯 Kotlin 移植（16 进制音调 FSK + RS 纠错，MIT） |
-| Android 声波 | AudioTrack（MODE_STREAM 发送）+ AudioRecord（MIC 接收）48kHz 单声道 PCM16 |
+| Android 声波 | AudioTrack（MODE_STREAM 发送）+ AudioRecord（VOICE_RECOGNITION 源接收，无 AGC/降噪）48kHz 单声道 PCM16 |
 | 桌面声波 | javax.sound.sampled（SourceDataLine / TargetDataLine），与 Android 线格式一致 |
 | 二维码生成 | ZXing core 3.5.3（字节模式，ISO-8859-1，纠错级 L） |
 | Android 扫码 | ML Kit Barcode Scanning 17.3.0（rawBytes 逐字节还原） |
@@ -214,6 +215,8 @@ Compress-Archive -Path "D:\afz_build\desktop\build\compose\binaries\main\app\Air
 3. 进度条走满后点击「保存」
 
 **开启声波双通道**：发送端在参数卡打开「声波发送（扬声器）」开关；接收端打开「声波接收（麦克风）」开关（首次弹出麦克风权限）。开启后二维码与声波同时收发，状态卡会显示声波信号检测情况。两档位均可选：可听声波（人耳可闻）或超声波（约 15 kHz，安静环境近距离使用）。
+
+**声波可视化与省电**：声波开启后，收发两端均实时显示贝塞尔频谱包络曲线（信号活动绿色）；接收端声波卡附进度详情（进度/新帧/重复/冗余、会话与块数）。接收页可单独关闭「摄像头接收」开关改为纯声波接收——适合暗光、摄像头无法对准屏幕或长时间待机省电的场景；此时隔墙也可由声波独立完成传输（吞吐约 13 B/s，大文件耗时较长）。
 
 ### Windows 桌面版
 

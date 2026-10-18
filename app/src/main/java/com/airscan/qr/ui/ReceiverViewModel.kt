@@ -49,10 +49,14 @@ data class ReceiverUiState(
     val hint: String? = null,
     val completed: CompletedFile? = null,
     val saving: Boolean = false,
+    // ---- 摄像头开关（纯声波接收时可关闭省电） ----
+    val cameraEnabled: Boolean = true,
     // ---- 声波接收 ----
     val audioEnabled: Boolean = false,
     val audioUltraSound: Boolean = false,
     val audioReceiving: Boolean = false,
+    val audioLevels: List<Float> = emptyList(),
+    val audioError: String? = null,
 )
 
 class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
@@ -68,6 +72,11 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
     private var audioReceiver: AudioReceiver? = null
     private var audioPollJob: Job? = null
 
+    /** 切换摄像头接收；关闭后仅用声波通道，省电。 */
+    fun setCameraEnabled(enabled: Boolean) {
+        _state.update { it.copy(cameraEnabled = enabled) }
+    }
+
     /** 切换声波接收开关（UI 层须先确保 RECORD_AUDIO 权限已授予）。 */
     fun setAudioEnabled(enabled: Boolean) {
         if (_state.value.audioEnabled == enabled) return
@@ -76,7 +85,9 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(audioEnabled = true) }
         } else {
             stopAudioReceiver()
-            _state.update { it.copy(audioEnabled = false, audioReceiving = false) }
+            _state.update {
+                it.copy(audioEnabled = false, audioReceiving = false, audioLevels = emptyList(), audioError = null)
+            }
         }
     }
 
@@ -87,7 +98,9 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.audioEnabled) {
             stopAudioReceiver()
             if (!startAudioReceiver()) {
-                _state.update { it.copy(audioEnabled = false, audioReceiving = false) }
+                _state.update {
+                    it.copy(audioEnabled = false, audioReceiving = false, audioLevels = emptyList(), audioError = null)
+                }
             }
         }
     }
@@ -102,11 +115,17 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
             }
             rx.start()
             audioReceiver = rx
-            // 轮询“是否检测到声波信号”指示灯
+            // 轮询：接收指示灯 + 麦克风电平波形 + 故障提示
             audioPollJob = viewModelScope.launch(Dispatchers.Default) {
                 while (isActive) {
-                    _state.update { it.copy(audioReceiving = rx.receiving) }
-                    delay(400)
+                    _state.update {
+                        it.copy(
+                            audioReceiving = rx.receiving,
+                            audioLevels = rx.snapshotLevels(),
+                            audioError = rx.error,
+                        )
+                    }
+                    delay(120)
                 }
             }
             true

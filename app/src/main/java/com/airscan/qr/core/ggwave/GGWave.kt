@@ -483,6 +483,9 @@ class GGWave(parameters: Parameters) {
         }
         if (++rxHistoryIdFixed >= spectrumHistoryFixed.size) rxHistoryIdFixed = 0
 
+        // 本帧历史窗内是否有任一协议检出有效音调（用于“正在接收”指示）
+        var anySignal = false
+
         for (protocolId in rxProtocols.indices) {
             val protocol = rxProtocols[protocolId]
             if (!protocol.enabled) continue
@@ -564,6 +567,7 @@ class GGWave(parameters: Parameters) {
             if (txDetectedTotal < 0.75 * txNeededTotal) detectedSignal = false
 
             if (detectedSignal) {
+                anySignal = true
                 val rsData = ReedSolomon(payloadLength, eccBytesForLength(payloadLength))
                 val encoded = ByteArray(totalLength)
                 for (j in 0 until totalLength) {
@@ -578,11 +582,13 @@ class GGWave(parameters: Parameters) {
                     }
                     rxDataLength = payloadLength
                     System.arraycopy(decoded, 0, rxData, 0, payloadLength)
-                    rxReceiving = false
                     break
                 }
             }
         }
+
+        // C++ 版仅在变长模式置位 receiving；固定帧长模式据此给出信号指示
+        rxReceiving = anySignal
     }
 
     // ---- 变长解码 ----

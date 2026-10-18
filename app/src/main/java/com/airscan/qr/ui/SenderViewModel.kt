@@ -51,6 +51,7 @@ data class SenderUiState(
     // ---- 声波发送 ----
     val audioEnabled: Boolean = false,
     val audioUltraSound: Boolean = false,
+    val audioLevels: List<Float> = emptyList(),
 )
 
 /** 判断当前帧尺寸是否能被声波段协议承载（超过 1600B 则禁用声波）。 */
@@ -67,6 +68,7 @@ class SenderViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---- 声波发送 ----
     private var audioSender: AudioSender? = null
+    private var audioPollJob: Job? = null
 
     /** 切换声波发送开关。 */
     fun setAudioEnabled(enabled: Boolean) {
@@ -184,6 +186,13 @@ class SenderViewModel(app: Application) : AndroidViewModel(app) {
             val sender = AudioSender(ultraSound = ultra, volume = 60)
             audioSender = sender
             sender.start()
+            // 轮询发送电平，驱动波形显示
+            audioPollJob = viewModelScope.launch(Dispatchers.Default) {
+                while (isActive) {
+                    _state.update { it.copy(audioLevels = sender.snapshotLevels()) }
+                    delay(120)
+                }
+            }
         }
 
         sendJob = viewModelScope.launch(Dispatchers.Default) {
@@ -217,9 +226,11 @@ class SenderViewModel(app: Application) : AndroidViewModel(app) {
     fun stop() {
         sendJob?.cancel()
         sendJob = null
+        audioPollJob?.cancel()
+        audioPollJob = null
         audioSender?.stop()
         audioSender = null
-        _state.update { it.copy(sending = false) }
+        _state.update { it.copy(sending = false, audioLevels = emptyList()) }
     }
 
     fun clearError() = _state.update { it.copy(error = null) }

@@ -163,6 +163,7 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
                             label = { Text("超声波") },
                         )
                     }
+                    AudioWave(levels = state.audioLevels, active = state.sending)
                 }
             }
         }

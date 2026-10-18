@@ -81,8 +81,12 @@ fun ReceiverScreen(vm: ReceiverViewModel = viewModel()) {
         if (ok) vm.setAudioEnabled(true)
     }
 
-    Box(Modifier.fillMaxSize()) {
-        if (granted) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0D10))
+    ) {
+        if (granted && state.cameraEnabled) {
             CameraPreview(modifier = Modifier.fillMaxSize(), onFrame = vm::onFrame)
         }
 
@@ -115,6 +119,11 @@ fun ReceiverScreen(vm: ReceiverViewModel = viewModel()) {
                 ReceiveStatusCard(state = state)
             }
 
+            // 摄像头开关：纯声波接收时关闭省电
+            if (granted) {
+                CameraToggleCard(enabled = state.cameraEnabled, onToggle = vm::setCameraEnabled)
+            }
+
             // 声波接收卡：与摄像头通道并行，无摄像头权限时也可单独使用
             AudioReceiverCard(
                 state = state,
@@ -140,6 +149,42 @@ fun ReceiverScreen(vm: ReceiverViewModel = viewModel()) {
                     onReset = vm::reset,
                 )
             }
+        }
+    }
+}
+
+/** 字节数人性化显示。 */
+private fun fmtBytes(bytes: Long): String = when {
+    bytes >= 1 shl 20 -> "%.1f MB".format(bytes / 1048576f)
+    bytes >= 1 shl 10 -> "%.1f KB".format(bytes / 1024f)
+    else -> "${bytes}B"
+}
+
+/** 摄像头接收开关卡：关闭后仅用声波通道省电。 */
+@Composable
+private fun CameraToggleCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xEE101418)),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "摄像头接收",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = if (enabled) "扫码 + 声波双通道并行" else "已关闭：纯声波接收，更省电",
+                    color = Color(0xFFB9C2CC),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(checked = enabled, onCheckedChange = onToggle)
         }
     }
 }
@@ -189,6 +234,32 @@ private fun AudioReceiverCard(
                         onClick = { onModeChange(true) },
                         label = { Text("超声波") },
                     )
+                }
+                state.audioError?.let {
+                    Text(it, color = Color(0xFFFF7B72), style = MaterialTheme.typography.bodySmall)
+                }
+                AudioWave(levels = state.audioLevels, active = state.audioReceiving)
+                // 接收进度详情（二维码与声波共享同一路喷泉码流）
+                if (state.locked) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "进度 ${(state.progress * 100).toInt()}%",
+                            color = Color(0xFF4CD97B),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text("新帧 ${state.uniqueFrames}", color = Color(0xFFB9C2CC), style = MaterialTheme.typography.bodySmall)
+                        Text("重复 ${state.dupFrames}", color = Color(0xFF8A93A0), style = MaterialTheme.typography.bodySmall)
+                        Text("冗余 ${state.redundantFrames}", color = Color(0xFF8A93A0), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text(
+                        "会话 0x${(state.sessionId and 0xFFFF).toString(16).uppercase()}" +
+                            " · 块 ${state.k} × ${state.blockLen}B · 共 ${fmtBytes(state.totalLen)}",
+                        color = Color(0xFF8A93A0),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else {
+                    Text("等待锁定数据流…", color = Color(0xFF5A6470), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
