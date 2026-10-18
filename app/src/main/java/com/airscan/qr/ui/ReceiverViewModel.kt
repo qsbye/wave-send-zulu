@@ -1,7 +1,10 @@
 package com.airscan.qr.ui
 
 import android.app.Application
+import android.content.ContentValues
 import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.airscan.qr.audio.AudioReceiver
@@ -25,6 +28,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class CompletedFile(
     val name: String,
@@ -35,6 +41,7 @@ data class CompletedFile(
     val transmittedSize: Long,
     val bytes: ByteArray,
     val savedUri: Uri? = null,
+    val savedPath: String? = null,
 )
 
 data class ReceiverUiState(
@@ -242,13 +249,22 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
             sessionId = header.sessionId,
             totalLen = header.totalLen,
         )
+        // 用 copy 而非整包重建：锁定瞬间必须保留声波/摄像头开关等 UI 状态，
+        // 否则用户看到的是"麦克风莫名自动关闭"（接收线程其实还在跑）。
         _state.update {
-            ReceiverUiState(
+            it.copy(
                 locked = true,
                 sessionId = header.sessionId,
                 k = header.k,
                 blockLen = header.blockLen,
                 totalLen = header.totalLen,
+                uniqueFrames = 0,
+                dupFrames = 0,
+                redundantFrames = 0,
+                malformed = 0,
+                progress = 0f,
+                hint = null,
+                completed = null,
             )
         }
     }
@@ -260,8 +276,21 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
             // 自动重建解码器，借助轮播重新收集。
             identity = null
             decoder = null
+            // 同样用 copy：校验失败重收时保留声波/摄像头开关状态
             _state.update {
-                ReceiverUiState(hint = "容器校验失败（FNV 不匹配），正在借轮播重新接收…")
+                it.copy(
+                    locked = false,
+                    sessionId = 0,
+                    k = 0,
+                    blockLen = 0,
+                    totalLen = 0,
+                    uniqueFrames = 0,
+                    dupFrames = 0,
+                    redundantFrames = 0,
+                    progress = 0f,
+                    hint = "容器校验失败（FNV 不匹配），正在借轮播重新接收…",
+                    completed = null,
+                )
             }
             return
         }
@@ -285,8 +314,48 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
                     ),
                 )
             }
+            // 接收完成即自动保存到系统 Downloads/AirFountainZulu（无需存储权限）
+            autoSave(file)
         } catch (e: Exception) {
             _state.update { it.copy(hint = "容器解析失败：${e.message}") }
+        }
+    }
+
+    /** 自动保存到系统 Downloads/AirFountainZulu（MediaStore，目录自动新建）。 */
+    private fun autoSave(file: Container.OpticalFile) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val resolver = getApplication<Application>().contentResolver
+                val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                val outName = "${stamp}-${file.name}"
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, outName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, file.type)
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/AirFountainZulu")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+                val uri = resolver.insert(
+                    MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                    values,
+                ) ?: error("MediaStore 拒绝写入")
+                resolver.openOutputStream(uri)?.use { it.write(file.bytes) }
+                    ?: error("无法打开输出流")
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                _state.update {
+                    it.copy(
+                        completed = it.completed?.copy(
+                            savedUri = uri,
+                            savedPath = "Download/AirFountainZulu/$outName",
+                        ),
+                    )
+                }
+            } catch (e: Exception) {
+                // 自动保存失败不影响接收结果，保留手动另存入口
+                _state.update { it.copy(hint = "自动保存失败：${e.message}，可使用「另存为」") }
+            }
         }
     }
 

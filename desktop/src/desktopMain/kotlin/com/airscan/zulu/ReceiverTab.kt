@@ -253,7 +253,20 @@ private class ReceiverState {
                     val file = Container.unpackFile(assembled)
                     if (Container.verify(file)) {
                         completed = file
-                        status = "接收完成，请保存文件"
+                        // 自动保存到 ~/Downloads/AirFountainZulu（目录自动新建）
+                        try {
+                            val dir = File(System.getProperty("user.home"), "Downloads/AirFountainZulu")
+                            dir.mkdirs()
+                            val stamp = java.time.format.DateTimeFormatter
+                                .ofPattern("yyyyMMdd-HHmmss")
+                                .format(java.time.LocalDateTime.now())
+                            val out = File(dir, "${stamp}-${file.name}")
+                            out.writeBytes(file.bytes)
+                            savedTo = out.absolutePath
+                            status = "接收完成，已自动保存到 ~/Downloads/AirFountainZulu"
+                        } catch (e: Exception) {
+                            status = "接收完成，自动保存失败（${e.message}），请手动保存"
+                        }
                     } else {
                         status = "SHA-256 校验失败，继续接收…"
                     }

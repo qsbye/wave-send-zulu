@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -351,24 +352,33 @@ private fun CompletedCard(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            Text("文件名：${done.name}", style = MaterialTheme.typography.bodyMedium)
+            Text("文件名：${done.name}", style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 "大小：${Fmt.bytes(done.size)}（光学承载 ${Fmt.bytes(done.transmittedSize)}" +
                     if (done.compression == "gzip") "，gzip 解压）" else "）",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            done.savedPath?.let {
+                Text(
+                    "已自动保存：$it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF4CD97B),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
-                text = "SHA-256：\n" + done.sha256Hex.chunked(8).joinToString(" "),
-                style = MaterialTheme.typography.bodySmall,
+                text = "SHA-256：\n" + done.sha256Hex.chunked(16).joinToString(" "),
+                style = MaterialTheme.typography.labelSmall,
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = onSave, enabled = !saving && done.savedUri == null) {
+                Button(onClick = onSave, enabled = !saving) {
                     Icon(Icons.Filled.SaveAlt, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (done.savedUri != null) "已保存" else if (saving) "保存中…" else "保存文件")
+                    Text(if (saving) "保存中…" else "另存为…")
                 }
                 OutlinedButton(onClick = onReset) {
                     Text("继续接收")

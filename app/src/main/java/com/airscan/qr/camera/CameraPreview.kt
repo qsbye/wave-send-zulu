@@ -7,10 +7,21 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size as ComposeSize
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -18,6 +29,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.max
 
 /**
  * 进程级分析线程池：QrAnalyzer 的 ML Kit Task 回调绑定在此执行器上。
@@ -34,6 +46,7 @@ object CameraExecutors {
 /**
  * 后置摄像头取景 + 二维码帧分析。
  * 分析线程为单线程池，保证送给解码器的帧有序串行处理。
+ * 检出二维码时在预览上叠加蓝色虚线锁定框。
  */
 @Composable
 fun CameraPreview(
@@ -43,6 +56,8 @@ fun CameraPreview(
     val context: Context = LocalContext.current
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
     val analysisExecutor: ExecutorService = remember { CameraExecutors.analysis }
+    // 最新检出的二维码包围盒（null = 当前未锁定），由分析线程回调更新
+    var qrBox by remember { mutableStateOf<QrBox?>(null) }
     // 离开界面后异步绑定完成时需要能感知，避免相机被泄漏绑定。
     val disposed = remember { booleanArrayOf(false) }
     val previewView = remember {
@@ -63,41 +78,75 @@ fun CameraPreview(
         }
     }
 
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-            cameraProviderFuture.addListener({
-                if (disposed[0]) return@addListener
-                val provider = cameraProviderFuture.get()
+    Box(modifier) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                cameraProviderFuture.addListener({
+                    if (disposed[0]) return@addListener
+                    val provider = cameraProviderFuture.get()
 
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
-                val analysis = ImageAnalysis.Builder()
-                    .setTargetResolution(Size(1280, 720))
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also {
-                        it.setAnalyzer(
-                            analysisExecutor,
-                            QrAnalyzer(analysisExecutor, onFrame),
-                        )
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
                     }
+                    val analysis = ImageAnalysis.Builder()
+                        .setTargetResolution(Size(1280, 720))
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also {
+                            it.setAnalyzer(
+                                analysisExecutor,
+                                QrAnalyzer(
+                                    analysisExecutor,
+                                    onFrame,
+                                ) { box -> qrBox = box },
+                            )
+                        }
 
-                try {
-                    provider.unbindAll()
-                    provider.bindToLifecycle(
-                        lifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview,
-                        analysis,
-                    )
-                } catch (_: Exception) {
-                    // 无摄像头或被占用时保持空白预览。
-                }
-            }, ContextCompat.getMainExecutor(context))
-            previewView
-        },
-    )
+                    try {
+                        provider.unbindAll()
+                        provider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            preview,
+                            analysis,
+                        )
+                    } catch (_: Exception) {
+                        // 无摄像头或被占用时保持空白预览。
+                    }
+                }, ContextCompat.getMainExecutor(context))
+                previewView
+            },
+        )
+        QRBoxOverlay(box = qrBox, modifier = Modifier.matchParentSize())
+    }
+}
+
+/**
+ * 检出二维码时叠加蓝色虚线锁定框。
+ * 分析帧坐标按 PreviewView FILL_CENTER 规则映射：
+ * 等比放大至铺满视口（短边居中裁剪）。
+ */
+@Composable
+private fun QRBoxOverlay(box: QrBox?, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val b = box ?: return@Canvas
+        if (b.frameWidth <= 0 || b.frameHeight <= 0) return@Canvas
+        val scale = max(size.width / b.frameWidth, size.height / b.frameHeight)
+        val dx = (size.width - b.frameWidth * scale) / 2f
+        val dy = (size.height - b.frameHeight * scale) / 2f
+        drawRect(
+            color = Color(0xFF3D8BFF),
+            topLeft = Offset(b.left * scale + dx, b.top * scale + dy),
+            size = ComposeSize(
+                width = (b.right - b.left) * scale,
+                height = (b.bottom - b.top) * scale,
+            ),
+            style = Stroke(
+                width = 6f,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(28f, 18f)),
+            ),
+        )
+    }
 }
