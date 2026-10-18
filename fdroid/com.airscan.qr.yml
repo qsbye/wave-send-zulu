@@ -17,8 +17,7 @@ Repo: https://github.com/qsbye/wave-send-zulu
 Builds:
   - versionName: 26.10.8.18
     versionCode: 26
-    # TODO: 替换为已打 tag 的提交哈希
-    commit: REPLACE_WITH_TAGGED_COMMIT
+    commit: f951517
     # 仓库根目录包含 settings.gradle（include :app/:desktop/:web），
     # 仅构建 :app 模块；prebuild 中移除桌面/Web 模块避免其工具链配置干扰。
     subdir: app
