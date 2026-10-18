@@ -103,10 +103,10 @@ git checkout -b com.airscan.qr
 ```bash
 cp <项目根>/fdroid/com.airscan.qr.yml metadata/com.airscan.qr.yml
 git add metadata/com.airscan.qr.yml
-git commit -m "update com.airscan.qr to <新版本名>"
+git commit -m "update AirFountainZulu to <新版本名>"
 ```
 
-> 若是**首次提交**用 `New App: com.airscan.qr`；后续版本更新用 `update com.airscan.qr to <versionName>`。
+> 若是**首次提交**用 `New App: AirFountainZulu`；后续版本更新用 `update AirFountainZulu to <versionName>`。
 
 **(c) 用 GitLab PAT 推送并建 MR**：
 
@@ -127,7 +127,7 @@ curl -s --request POST --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
     "source_branch": "com.airscan.qr",
     "target_branch": "master",
     "target_project_id": 36528,
-    "title": "update com.airscan.qr to <新版本名>",
+    "title": "update AirFountainZulu to <新版本名>",
     "description": "Update AirFountainZulu to <新版本名> (versionCode <新 versionCode>).\n\n### What the app does\n<英文功能简介>\n\n### FOSS compliance notes\n<英文 FOSS 合规说明>\n\n### Build metadata\n<英文构建元数据说明>"
   }' \
   "https://gitlab.com/api/v4/projects/87775010/merge_requests" \
