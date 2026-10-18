@@ -12,8 +12,8 @@
 - **声波通道**：纯 Kotlin 全量移植 [ggwave](https://github.com/ggerganov/ggwave)，大帧拆 64B 声波段传输、接收端重组还原原始帧，与二维码通道共用同一 LT 解码器
 - **声波可视化与省电开关**：收发两端实时贝塞尔频谱包络曲线（Catmull-Rom 平滑），接收页附进度详情（进度/新帧/重复/冗余/会话/块数）与剩余时间预计；接收端可关闭摄像头改纯声波接收省电，卡片 80% 半透明便于观察二维码
 - **二维码锁定框仿射跟随**：检出二维码后叠加蓝色虚线四角框（ML Kit cornerPoints），实时跟随旋转与透视畸变；信息层可滚动，完成卡不溢出
-- **跨平台**：Android（Jetpack Compose）+ Windows 桌面（Compose Multiplatform），两端逐位兼容，声波协议亦可跨端互通
-- **单文件桌面版**：.NET 4 启动器内嵌完整运行时，双击即用
+- **跨平台**：Android（Jetpack Compose）+ Windows 桌面（Compose Multiplatform）+ Web（Kotlin/Wasm + Compose Multiplatform Web），三端逐位兼容，声波协议亦可跨端互通
+- **单文件 Web 版**：Kotlin/Wasm 编译产物内联为单个 HTML（约 6 MB），双击即用、完全离线、无服务器依赖；二维码编码走纯 Kotlin QrMatrix，扫码走浏览器 BarcodeDetector
 
 ## 界面截图
 
@@ -71,6 +71,15 @@ AirFountainZulu/
 │       ├── ReceiverTab.kt      # 接收端（webcam + 声波接收，双通道重组）
 │       ├── DesktopAudio.kt     # javax.sound.sampled 声波收发（与 Android 同协议）
 │       └── QrBitmap.kt         # 二维码渲染（与 Android 端参数一致）
+├── web/                        # Web 端（Kotlin/Wasm + Compose Multiplatform Web）
+│   └── src/wasmJsMain/kotlin/com/airscan/zulu/
+│       ├── Main.kt             # CanvasBasedWindow 入口，复用 app 核心
+│       ├── SenderTab.kt        # 发送端（文件选择 + 纯 Kotlin QrMatrix 二维码）
+│       ├── ReceiverTab.kt      # 接收端（BarcodeDetector 扫码 + 喷泉码重组 + Blob 下载）
+│       ├── JsBridge.kt         # 浏览器桥（文件/下载/摄像头，顶层 @JsFun external）
+│       ├── QrView.kt           # 二维码 Canvas 矢量绘制 + 纯 Kotlin Base64
+│       └── com/airscan/qr/core/ # 直接复用 app/src/main/java/.../core（排除 JVM/声波）
+├── web/tools/singlefile.py     # 内联脚本/wasm 生成单文件 HTML（fetch+XHR 拦截，file:// 可用）
 ├── launcher/
 │   └── Launcher.cs             # .NET 4 单文件启动器源码
 ├── app/src/test/               # 单元测试（54 项：喷泉码/容器 + RS/FFT/ggwave 往返/段重组）
@@ -84,13 +93,17 @@ AirFountainZulu/
 |------|------|
 | Android | Kotlin 2.0 + Jetpack Compose (BOM 2024.10.01) |
 | 桌面端 | Compose Multiplatform 1.7.0 (JVM) |
+| Web 端 | Kotlin/Wasm + Compose Multiplatform 1.7.0 (Web) |
 | 喷泉码 | 自研 LT 编解码（与 decimen v3 线格式兼容） |
 | 声波调制 | ggwave 纯 Kotlin 移植（16 进制音调 FSK + RS 纠错，MIT） |
 | Android 声波 | AudioTrack（MODE_STREAM 发送）+ AudioRecord（VOICE_RECOGNITION 源接收，无 AGC/降噪）48kHz 单声道 PCM16 |
 | 桌面声波 | javax.sound.sampled（SourceDataLine / TargetDataLine），与 Android 线格式一致 |
 | 二维码生成 | ZXing core 3.5.3（字节模式，ISO-8859-1，纠错级 L） |
+| Web 二维码生成 | 纯 Kotlin QrMatrix（v1–40，纠错级 L，GF(2^8) RS 复用 ggwave），wasm 端无 zxing/AWT |
 | Android 扫码 | ML Kit Barcode Scanning 17.3.0（rawBytes 逐字节还原） |
 | 桌面端扫码 | ZXing QRCodeReader（CHARACTER_SET=ISO-8859-1 强制映射） |
+| Web 扫码 | 浏览器 BarcodeDetector API（Chrome/Edge，rawValue 逐字节映射） |
+| Web 单文件 | singlefile.py 内联 composeApp.js + 两个 wasm（gzip+base64），fetch+XHR 拦截兼容 file:// |
 | 桌面摄像头 | webcam-capture 0.3.12 |
 | 启动器 | .NET Framework 4.x（单文件 WinExe，内嵌 zip 自解压） |
 
@@ -211,9 +224,14 @@ mkdir -p build/wix311   # 绕过 WiX 校验（打 MSI 才需要真正的 WiX）
 
 # 单元测试
 ./tools/gradle-8.13/bin/gradle.bat :app:testDebugUnitTest --no-daemon
+
+# Web 单文件版（Kotlin/Wasm，需联网下载 Compose wasm 依赖）
+./tools/gradle-8.13/bin/gradle.bat :web:wasmJsBrowserDistribution --no-daemon
+# 内联为单文件 HTML（输出到项目根目录 AirFountainZulu-web.html）
+python3 web/tools/singlefile.py web/build/dist/wasmJs/productionExecutable
 ```
 
-> **注意**：项目路径含中文时 Gradle 测试进程的类路径会乱码导致 `ClassNotFoundException`，构建脚本通过 robocopy 到 `D:\afz_build` 规避此问题。
+> **注意**：项目路径含中文时 Gradle 测试进程的类路径会乱码导致 `ClassNotFoundException`，构建脚本通过 robocopy 到 `D:\afz_build` 规避此问题。Web 构建同样建议在全英文路径下进行；Compose 运行时会写入 `~/.skiko`，需保证该目录可写。
 
 ### 打包单文件启动器
 
@@ -254,6 +272,15 @@ Compress-Archive -Path "D:\afz_build\desktop\build\compose\binaries\main\app\Air
 
 桌面端同样提供「声波发送/接收」开关（可听/超声两档），与 Android 端协议一致，可跨端互通。
 
+### Web 单文件版
+
+1. 双击 `AirFountainZulu-web.html`（无需服务器、无需联网、无安装）；或用 Chrome/Edge 打开本地文件
+2. **发送**：切到「发送」→ 点击「选择文件…」→ 选择帧大小（500B/1000B/1465B）→ 点击「开始发送」，屏幕播放二维码流
+3. **接收**：切到「接收」→ 打开摄像头开关（需 Chrome/Edge，调用 `BarcodeDetector`）→ 对准发送端屏幕，摄像头画面显示在页面右下角小窗；收齐后点击「保存到下载目录」
+4. 接收完成卡显示文件名、大小、MIME 与 SHA-256，校验通过后才能下载
+
+> **限制**：Web 版仅支持二维码光信道，**不支持声波通道**（浏览器无低延迟音频 IO）；接收依赖 `BarcodeDetector`（Chrome/Edge 94+，Firefox 不支持）；HTTP 协议非加密时摄像头需 `localhost` 或 `https://`。
+
 ### 参数说明
 
 | 参数 | 选项 | 说明 |
@@ -270,6 +297,7 @@ Compress-Archive -Path "D:\afz_build\desktop\build\compose\binaries\main\app\Air
 - 超声档依赖扬声器/麦克风高频响应，多数笔记本麦克风 16 kHz 以上衰减严重，建议优先可听档
 - Windows 桌面版打包 MSI 安装包需要 WiX 工具链（本机网络受限时跳过，免安装版不受影响）
 - Android 需授权摄像头权限（扫码）与麦克风权限（声波接收）；桌面版需摄像头硬件
+- Web 版无声波通道；接收依赖 Chrome/Edge 的 `BarcodeDetector`，摄像头需 `https://` 或 `localhost`；Wasm 首次编译约需数十秒
 
 ## 参考项目
 

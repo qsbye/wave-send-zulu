@@ -1,8 +1,5 @@
 package com.airscan.qr.core
 
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-
 /**
  * 自描述帧协议（与 decimen v3 线格式兼容）。
  *
@@ -57,18 +54,17 @@ sealed class FrameVerdict {
 
 fun packFrame(header: FrameHeader, block: ByteArray): ByteArray {
     val out = ByteArray(Wire.HEADER_LEN + block.size)
-    val dv = ByteBuffer.wrap(out).order(ByteOrder.LITTLE_ENDIAN)
-    dv.put(Wire.MAGIC0.toByte())
-    dv.put(Wire.MAGIC1.toByte())
-    dv.put(Wire.WIRE_VERSION.toByte())
-    dv.put(header.flags.toByte())
-    dv.putShort(header.sessionId.toShort())
-    dv.putInt(header.seq.toInt())
-    dv.putShort(header.k.toShort())
-    dv.putShort(header.blockLen.toShort())
-    dv.putInt(header.totalLen.toInt())
-    dv.putInt(header.payloadFnv.toInt())
-    System.arraycopy(block, 0, out, Wire.HEADER_LEN, block.size)
+    out[0] = Wire.MAGIC0.toByte()
+    out[1] = Wire.MAGIC1.toByte()
+    out[2] = Wire.WIRE_VERSION.toByte()
+    out[3] = header.flags.toByte()
+    putU16(out, 4, header.sessionId)
+    putU32(out, 6, header.seq)
+    putU16(out, 10, header.k)
+    putU16(out, 12, header.blockLen)
+    putU32(out, 14, header.totalLen)
+    putU32(out, 18, header.payloadFnv)
+    block.copyInto(out, Wire.HEADER_LEN)
     return out
 }
 
@@ -94,10 +90,9 @@ fun classifyFrame(bytes: ByteArray): FrameVerdict {
     if (unknownCritical != 0) return FrameVerdict.UnsupportedFlags(unknownCritical)
 
     if (bytes.size <= Wire.HEADER_LEN) return FrameVerdict.Malformed
-    val dv = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
-    val k = dv.getShort(10).toInt() and 0xFFFF
-    val blockLen = dv.getShort(12).toInt() and 0xFFFF
-    val totalLen = dv.getInt(14).toLong() and 0xFFFFFFFFL
+    val k = getU16(bytes, 10)
+    val blockLen = getU16(bytes, 12)
+    val totalLen = getU32(bytes, 14).toLong() and 0xFFFFFFFFL
     if (k == 0 || blockLen == 0 || totalLen == 0L) return FrameVerdict.Malformed
     if (bytes.size != Wire.HEADER_LEN + blockLen) return FrameVerdict.Malformed
     return FrameVerdict.Ok
@@ -105,15 +100,14 @@ fun classifyFrame(bytes: ByteArray): FrameVerdict {
 
 fun parseFrame(bytes: ByteArray): Pair<FrameHeader, ByteArray>? {
     if (classifyFrame(bytes) !is FrameVerdict.Ok) return null
-    val dv = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
     val header = FrameHeader(
-        flags = dv.get(3).toInt() and 0xFF,
-        sessionId = dv.getShort(4).toInt() and 0xFFFF,
-        seq = dv.getInt(6).toLong() and 0xFFFFFFFFL,
-        k = dv.getShort(10).toInt() and 0xFFFF,
-        blockLen = dv.getShort(12).toInt() and 0xFFFF,
-        totalLen = dv.getInt(14).toLong() and 0xFFFFFFFFL,
-        payloadFnv = dv.getInt(18).toLong() and 0xFFFFFFFFL,
+        flags = bytes[3].toInt() and 0xFF,
+        sessionId = getU16(bytes, 4),
+        seq = getU32(bytes, 6).toLong() and 0xFFFFFFFFL,
+        k = getU16(bytes, 10),
+        blockLen = getU16(bytes, 12),
+        totalLen = getU32(bytes, 14).toLong() and 0xFFFFFFFFL,
+        payloadFnv = getU32(bytes, 18).toLong() and 0xFFFFFFFFL,
     )
     val block = bytes.copyOfRange(Wire.HEADER_LEN, bytes.size)
     return header to block
@@ -153,3 +147,28 @@ fun frameVerdictMessage(v: FrameVerdict): String? = when (v) {
         "该传输流使用了当前版本无法识别的特性，请升级本应用。"
     else -> null
 }
+
+// ---- 小端读写助手（替代 JVM-only 的 java.nio.ByteBuffer） ----
+
+private fun putU16(buf: ByteArray, off: Int, v: Int) {
+    buf[off] = (v and 0xFF).toByte()
+    buf[off + 1] = ((v ushr 8) and 0xFF).toByte()
+}
+
+private fun putU32(buf: ByteArray, off: Int, v: Long) {
+    var x = v
+    for (i in 0 until 4) {
+        buf[off + i] = (x and 0xFF).toByte()
+        x = x ushr 8
+    }
+}
+
+private fun getU16(buf: ByteArray, off: Int): Int =
+    (buf[off].toInt() and 0xFF) or
+        ((buf[off + 1].toInt() and 0xFF) shl 8)
+
+private fun getU32(buf: ByteArray, off: Int): Int =
+    (buf[off].toInt() and 0xFF) or
+        ((buf[off + 1].toInt() and 0xFF) shl 8) or
+        ((buf[off + 2].toInt() and 0xFF) shl 16) or
+        ((buf[off + 3].toInt() and 0xFF) shl 24)

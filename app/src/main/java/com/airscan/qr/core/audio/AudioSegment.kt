@@ -84,7 +84,7 @@ object AudioSegment {
             // payload
             val srcOff = seg * PAYLOAD_BYTES
             val n = minOf(PAYLOAD_BYTES, frameLen - srcOff)
-            System.arraycopy(frame, srcOff, s, HEADER_BYTES, n)
+            frame.copyInto(s, HEADER_BYTES, srcOff, srcOff + n)
             out.add(s)
         }
         return out
@@ -108,7 +108,7 @@ object AudioSegment {
         if (segIndex >= segCount) return null
         if (frameLen < 1 || frameLen > MAX_FRAME_BYTES) return null
         val payload = ByteArray(PAYLOAD_BYTES)
-        System.arraycopy(seg, HEADER_BYTES, payload, 0, PAYLOAD_BYTES)
+        seg.copyInto(payload, 0, HEADER_BYTES, HEADER_BYTES + PAYLOAD_BYTES)
         return Segment(sessionId, seq, frameLen, segCount, segIndex, payload)
     }
 
@@ -165,7 +165,7 @@ object AudioSegment {
                 p.gotCount++
                 val dstOff = seg.segIndex * PAYLOAD_BYTES
                 val n = minOf(PAYLOAD_BYTES, p.frameLen - dstOff)
-                System.arraycopy(seg.payload, 0, p.data, dstOff, n)
+                seg.payload.copyInto(p.data, dstOff, 0, 0 + n)
             }
             pendingSnapshot =
                 if (p.gotCount == p.segCount) null else PendingInfo(p.segCount, p.gotCount)

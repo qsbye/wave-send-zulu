@@ -1,5 +1,6 @@
 package com.airscan.qr.core.ggwave
 
+import kotlin.math.PI
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
@@ -259,20 +260,20 @@ class GGWave(parameters: Parameters) {
             // 长度字段本身也做 RS（1 + (offset-1) 字节）
             val rsLength = ReedSolomon(1, encodedDataOffset - 1)
             val encLen = rsLength.encode(byteArrayOf(txData[0]))
-            System.arraycopy(encLen, 0, dataEncoded, 0, encodedDataOffset)
+            encLen.copyInto(dataEncoded, 0, 0, 0 + encodedDataOffset)
         }
 
         val rsData = ReedSolomon(txDataLength, nECCBytesPerTx)
         val body = ByteArray(txDataLength)
-        System.arraycopy(txData, 1, body, 0, txDataLength)
+        txData.copyInto(body, 0, 1, 1 + txDataLength)
         val encBody = rsData.encode(body)
-        System.arraycopy(encBody, 0, dataEncoded, encodedDataOffset, txDataLength + nECCBytesPerTx)
+        encBody.copyInto(dataEncoded, encodedDataOffset, 0, 0 + txDataLength + nECCBytesPerTx)
 
         // ---- 预计算每个数据 bit 的双音调幅值表 ----
         val nDataBits = 2 * 16 * protocol.bytesPerTx
         val phaseOffsets = FloatArray(nDataBits)
         for (k in 0 until nDataBits) {
-            phaseOffsets[k] = (Math.PI * k / protocol.nDataBitsPerTx()).toFloat()
+            phaseOffsets[k] = (PI * k / protocol.nDataBitsPerTx()).toFloat()
         }
         val bit0 = Array(nDataBits) { FloatArray(samplesPerFrame) }
         val bit1 = Array(nDataBits) { FloatArray(samplesPerFrame) }
@@ -282,10 +283,10 @@ class GGWave(parameters: Parameters) {
             val curHzPerSample = hzPerSample.toDouble()
             val curIHz = 1.0 / curHzPerSample
             for (i in 0 until samplesPerFrame) {
-                bit1[k][i] = sin((2.0 * Math.PI) * (i * isamplesPerFrame.toDouble()) * (freq * curIHz) + phaseOffset).toFloat()
+                bit1[k][i] = sin((2.0 * PI) * (i * isamplesPerFrame.toDouble()) * (freq * curIHz) + phaseOffset).toFloat()
             }
             for (i in 0 until samplesPerFrame) {
-                bit0[k][i] = sin((2.0 * Math.PI) * (i * isamplesPerFrame.toDouble()) * ((freq + hzPerSample * freqDeltaBin) * curIHz) + phaseOffset).toFloat()
+                bit0[k][i] = sin((2.0 * PI) * (i * isamplesPerFrame.toDouble()) * ((freq + hzPerSample * freqDeltaBin) * curIHz) + phaseOffset).toFloat()
             }
         }
 
@@ -422,7 +423,7 @@ class GGWave(parameters: Parameters) {
                 rxAmplitude[i] = inFifo[i] * scale
             }
             val leftover = inFifoLen - samplesPerFrame
-            if (leftover > 0) System.arraycopy(inFifo, samplesPerFrame, inFifo, 0, leftover)
+            if (leftover > 0) inFifo.copyInto(inFifo, 0, samplesPerFrame, samplesPerFrame + leftover)
             inFifoLen = leftover
 
             if (isFixedPayloadLength) decodeFixed() else decodeVariable()
@@ -430,7 +431,7 @@ class GGWave(parameters: Parameters) {
 
         if (rxDataLength > 0) {
             val res = ByteArray(rxDataLength)
-            System.arraycopy(rxData, 0, res, 0, rxDataLength)
+            rxData.copyInto(res, 0, 0, 0 + rxDataLength)
             rxDataLength = 0
             return res
         }
@@ -462,7 +463,7 @@ class GGWave(parameters: Parameters) {
     // ---- 固定帧长解码 ----
     private fun decodeFixed() {
         // FFT
-        System.arraycopy(rxAmplitude, 0, rxFftOut, 0, samplesPerFrame)
+        rxAmplitude.copyInto(rxFftOut, 0, 0, 0 + samplesPerFrame)
         rdft.rdft(rxFftOut)
 
         var amax = 0.0f
@@ -581,7 +582,7 @@ class GGWave(parameters: Parameters) {
                         }
                     }
                     rxDataLength = payloadLength
-                    System.arraycopy(decoded, 0, rxData, 0, payloadLength)
+                    decoded.copyInto(rxData, 0, 0, 0 + payloadLength)
                     break
                 }
             }
@@ -594,7 +595,7 @@ class GGWave(parameters: Parameters) {
     // ---- 变长解码 ----
     private fun decodeVariable() {
         // 滑动平均幅值 -> FFT -> 谱
-        amplitudeHistory[rxHistoryId].let { System.arraycopy(rxAmplitude, 0, it, 0, samplesPerFrame) }
+        amplitudeHistory[rxHistoryId].let { rxAmplitude.copyInto(it, 0, 0, 0 + samplesPerFrame) }
         if (++rxHistoryId >= kMaxSpectrumHistory) rxHistoryId = 0
 
         if (rxHistoryId == 0 || rxReceiving) {
@@ -605,7 +606,7 @@ class GGWave(parameters: Parameters) {
             val norm = 1.0f / kMaxSpectrumHistory
             for (i in 0 until samplesPerFrame) amplitudeAverage[i] *= norm
 
-            System.arraycopy(amplitudeAverage, 0, rxFftOut, 0, samplesPerFrame)
+            amplitudeAverage.copyInto(rxFftOut, 0, 0, 0 + samplesPerFrame)
             rdft.rdft(rxFftOut)
             for (i in 0 until samplesPerFrame) {
                 rxSpectrum[i] = rxFftOut[2 * i] * rxFftOut[2 * i] + rxFftOut[2 * i + 1] * rxFftOut[2 * i + 1]
@@ -619,7 +620,7 @@ class GGWave(parameters: Parameters) {
         if (rxFramesLeftToRecord > 0) {
             val dst = (rxFramesToRecord - rxFramesLeftToRecord) * samplesPerFrame
             if (dst + samplesPerFrame <= amplitudeRecorded.size) {
-                System.arraycopy(rxAmplitude, 0, amplitudeRecorded, dst, samplesPerFrame)
+                rxAmplitude.copyInto(amplitudeRecorded, dst, 0, 0 + samplesPerFrame)
             }
             if (--rxFramesLeftToRecord <= 0) rxAnalyzing = true
         }
@@ -744,7 +745,7 @@ class GGWave(parameters: Parameters) {
                         (itx + 1) * protocol.bytesPerTx >= dataEncoded.size) break
 
                     // 累加 framesPerTx 个帧的时域样本后 FFT
-                    System.arraycopy(amplitudeRecorded, offsetTx * step, rxFftOut, 0, samplesPerFrame)
+                    amplitudeRecorded.copyInto(rxFftOut, 0, offsetTx * step, offsetTx * step + samplesPerFrame)
                     for (k in 1 until protocol.framesPerTx) {
                         val base = (offsetTx + k * stepsPerFrame) * step
                         for (i in 0 until samplesPerFrame) {
@@ -819,7 +820,7 @@ class GGWave(parameters: Parameters) {
                         }
                         isValid = true
                         rxDataLength = decodedLength
-                        System.arraycopy(decoded, 0, rxData, 0, decodedLength)
+                        decoded.copyInto(rxData, 0, 0, 0 + decodedLength)
                     }
                 }
 

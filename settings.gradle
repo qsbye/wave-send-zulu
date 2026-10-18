@@ -5,7 +5,9 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+// PREFER_PROJECT：Kotlin/Wasm 工具链（binaryen/d8）会以项目仓库形式自动注册发行版仓库
+dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.PREFER_PROJECT); repositories { google(); mavenCentral() } }
 rootProject.name = 'AirFountainZulu'
 include ':app'
 include ':desktop'
+include ':web'

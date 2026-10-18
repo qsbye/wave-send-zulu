@@ -1,5 +1,6 @@
 package com.airscan.qr.core.ggwave
 
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -158,10 +159,10 @@ internal class Resampler {
     }
 
     private fun makeSinc() {
-        val winFreq = Math.PI / kWidth / kSamplesPerZeroCrossing
+        val winFreq = PI / kWidth / kSamplesPerZeroCrossing
         sincTable[0] = 1.0f
         for (i in 1 until kWidth * kSamplesPerZeroCrossing) {
-            val temp = i.toDouble() * Math.PI / kSamplesPerZeroCrossing
+            val temp = i.toDouble() * PI / kSamplesPerZeroCrossing
             var v = sin(temp) / temp
             val win = 0.5 + 0.5 * cos(winFreq * i)
             v *= win

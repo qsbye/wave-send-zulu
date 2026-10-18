@@ -19,6 +19,9 @@ tools/
 *.aab
 *-launcher.exe
 
+# ===== 系统 =====
+.DS_Store
+
 # ===== 签名密钥（含口令，勿提交） =====
 *.keystore
 *.jks

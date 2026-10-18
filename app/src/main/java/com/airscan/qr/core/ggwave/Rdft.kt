@@ -1,6 +1,7 @@
 package com.airscan.qr.core.ggwave
 
 import kotlin.math.atan
+import kotlin.math.sqrt
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -18,7 +19,7 @@ import kotlin.math.sin
 internal class Rdft(private val n: Int) {
 
     // ip[0],ip[1] 是表指针（nw, nc），ip[2...] 为位反转表
-    private val ip = IntArray(2 + (2 + Math.sqrt((n / 2).toDouble()).toInt()))
+    private val ip = IntArray(2 + (2 + sqrt((n / 2).toDouble()).toInt()))
     private val w = FloatArray(n / 2)
 
     init {

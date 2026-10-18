@@ -69,7 +69,7 @@ class LTEncoder(
             val srcStart = b * blockLen
             val len = minOf(blockLen, payload.size - srcStart)
             if (len > 0) {
-                System.arraycopy(payload, srcStart, backing, b * words * 4, len)
+                payload.copyInto(backing, b * words * 4, srcStart, srcStart + len)
             }
         }
         for (i in blocks.indices) {
@@ -81,7 +81,7 @@ class LTEncoder(
     fun encode(seq: UInt): ByteArray {
         val idx = Fountain.frameComposition(k, sessionId, seq)
         val out = scratch
-        java.util.Arrays.fill(out, 0)
+        out.fill(0)
         for (b in idx) {
             val off = b * words
             for (w in 0 until words) {

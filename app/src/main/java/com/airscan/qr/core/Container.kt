@@ -1,17 +1,13 @@
 package com.airscan.qr.core
 
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.security.MessageDigest
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
-
 /**
  * DCF2 文件容器（与 decimen 容器格式兼容）。
  *
  * 喷泉码载荷不是裸文件，而是一个自描述容器：保留文件名、MIME 类型、
  * 可选 gzip（仅在确实变小时启用）以及原始字节的 SHA-256。
  * 接收端在还原并校验 SHA-256 通过前，不应向用户提供文件。
+ *
+ * 平台差异（摘要/gzip）封装在 [Platform]：JVM 用 JDK，wasm 用纯 Kotlin 实现。
  *
  * 头部 49 字节（小端）：
  *   0  4B   magic "DCF2" = 44 43 46 32
@@ -72,8 +68,7 @@ object Container {
         return if (cleaned.isEmpty() || cleaned == "." || cleaned == "..") "transfer.bin" else cleaned
     }
 
-    fun sha256(bytes: ByteArray): ByteArray =
-        MessageDigest.getInstance("SHA-256").digest(bytes)
+    fun sha256(bytes: ByteArray): ByteArray = Platform.sha256(bytes)
 
     data class Packed(
         val container: ByteArray,
@@ -95,35 +90,32 @@ object Container {
         require(bytes.isNotEmpty()) { "fileEmpty" }
         require(bytes.size.toLong() <= MAX_FILE_BYTES) { "fileOverLimit" }
 
-        val nameBytes = safeFileName(name).toByteArray(Charsets.UTF_8)
+        val nameBytes = safeFileName(name).encodeToByteArray()
         val typeBytes = (type?.takeIf { it.isNotEmpty() } ?: "application/octet-stream")
-            .toByteArray(Charsets.UTF_8)
+            .encodeToByteArray()
         require(nameBytes.size <= 0xFFFF && typeBytes.size <= 0xFFFF) { "fileNameTooLong" }
 
         val digest = sha256(bytes)
 
-        // 太小不值得 gzip；已压缩格式直接跳过。
+        // 太小不值得 gzip；已压缩格式直接跳过；平台不支持压缩（wasm）时跳过。
         val tryGzip = bytes.size >= 768 && !isPrecompressedType(type ?: "")
-        var compressed: ByteArray? = null
-        if (tryGzip) {
-            val gz = gzip(bytes)
-            if (gz.size + 64 < bytes.size) compressed = gz
-        }
+        var compressed: ByteArray? = if (tryGzip) Platform.gzipCompress(bytes) else null
+        if (compressed != null && compressed.size + 64 >= bytes.size) compressed = null
         val transmitted = compressed ?: bytes
         val compression = if (compressed != null) "gzip" else "none"
 
         val out = ByteArray(HEADER_LEN + nameBytes.size + typeBytes.size + transmitted.size)
-        System.arraycopy(MAGIC, 0, out, 0, 4)
+        MAGIC.copyInto(out, 0)
         out[4] = if (compressed != null) 1 else 0
         putU16(out, 5, nameBytes.size)
         putU16(out, 7, typeBytes.size)
         putU32(out, 9, bytes.size.toLong())
         putU32(out, 13, transmitted.size.toLong())
-        System.arraycopy(digest, 0, out, 17, 32)
+        digest.copyInto(out, 17)
         var off = HEADER_LEN
-        System.arraycopy(nameBytes, 0, out, off, nameBytes.size); off += nameBytes.size
-        System.arraycopy(typeBytes, 0, out, off, typeBytes.size); off += typeBytes.size
-        System.arraycopy(transmitted, 0, out, off, transmitted.size)
+        nameBytes.copyInto(out, off); off += nameBytes.size
+        typeBytes.copyInto(out, off); off += typeBytes.size
+        transmitted.copyInto(out, off)
 
         return Packed(out, compression, bytes.size.toLong(), transmitted.size.toLong())
     }
@@ -159,18 +151,18 @@ object Container {
         }
 
         val rawBytes = if (compression == "gzip") {
-            gunzip(transmitted, fileLength)
+            Platform.gzipDecompress(transmitted, fileLength)
         } else {
             transmitted
         }
         require(rawBytes.size.toLong() == fileLength) { "decompressedLengthMismatch" }
 
         val name = safeFileName(
-            String(container, HEADER_LEN, nameLength, Charsets.UTF_8)
+            container.decodeToString(HEADER_LEN, HEADER_LEN + nameLength)
         )
-        val mime = String(
-            container, HEADER_LEN + nameLength, typeLength, Charsets.UTF_8
-        ).ifEmpty { "application/octet-stream" }
+        val mime = container
+            .decodeToString(HEADER_LEN + nameLength, HEADER_LEN + nameLength + typeLength)
+            .ifEmpty { "application/octet-stream" }
         val digest = container.copyOfRange(17, 49)
 
         return OpticalFile(name, mime, rawBytes, digest, compression, transmittedLength)
@@ -178,30 +170,7 @@ object Container {
 
     /** 校验 SHA-256；接收端必须在返回 true 后才允许保存。 */
     fun verify(file: OpticalFile): Boolean =
-        MessageDigest.isEqual(sha256(file.bytes), file.sha256)
-
-    private fun gzip(bytes: ByteArray): ByteArray {
-        val bos = ByteArrayOutputStream(bytes.size / 2)
-        GZIPOutputStream(bos).use { it.write(bytes) }
-        return bos.toByteArray()
-    }
-
-    /** 解压带硬上限：gzip 尾部长度不可信，超量即中止，防止 zip-bomb。 */
-    private fun gunzip(bytes: ByteArray, maxBytes: Long): ByteArray {
-        GZIPInputStream(ByteArrayInputStream(bytes)).use { input ->
-            val out = ByteArrayOutputStream(minOf(maxBytes, 1L shl 20).toInt())
-            val buf = ByteArray(16 * 1024)
-            var total = 0L
-            while (true) {
-                val n = input.read(buf)
-                if (n <= 0) break
-                total += n
-                require(total <= maxBytes) { "inflateOverflow" }
-                out.write(buf, 0, n)
-            }
-            return out.toByteArray()
-        }
-    }
+        Platform.ctEqual(sha256(file.bytes), file.sha256)
 
     private fun putU16(buf: ByteArray, off: Int, v: Int) {
         buf[off] = (v and 0xFF).toByte()
