@@ -1,0 +1,1 @@
+Add project poster (earth-tone palette). Add Gradle Wrapper 8.11.1 for F-Droid build compatibility.
