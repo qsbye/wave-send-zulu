@@ -17,15 +17,34 @@ description: 将 AirFountainZulu 新版本发布/更新到 F-Droid。当用户�
 
 ## 核心原则：本地验证无误后再推送 MR
 
-**每次修改 metadata 后，必须先在本地用 Docker buildserver 完整验证 `fdroid build` 通过，才能推送到 fdroiddata 并请求维护者触发 CI。** 维护者时间宝贵，不要把未验证的改动丢给 CI 去试错。
+**每次修改 metadata 后，必须先在本地用 Docker buildserver 完整验证 F-Droid CI 的所有 test job 通过，才能推送到 fdroiddata 并请求维护者触发 CI。** 维护者时间宝贵，不要把未验证的改动丢给 CI 去试错。
+
+F-Droid CI test stage 包含以下 job，**全部**需本地验证通过：
+
+| CI Job | 本地验证方法 | 通过标准 |
+|--------|-------------|---------|
+| `schema validation` | `fdroid readmeta` 或直接对照 schema | 无 schema 错误（Categories 值必须在 `config/categories.yml` 中） |
+| `fdroid lint` | `fdroid lint <appId>`（在 fdroiddata 目录，需 `config/`） | exit 0，无 `not valid` 等错误 |
+| `fdroid rewritemeta` | `fdroid rewritemeta <appId>` 后检查文件无变化 | 无 diff（格式完全匹配） |
+| `check source code` | `fdroid scanner <appId>` | 无专有依赖命中（Firebase/GMS/ML Kit 等） |
+| `check apk` | `fdroid build` 后 `fdroid checkupdates --allow-dirty` 或构建产物检查 | APK 无 dependenciesInfo 签名块 |
+| `checkupdates` | `fdroid checkupdates <appId>` | 能正确检测到最新版本 |
+| `git redirect` | 确认 Repo URL 无重定向 | `curl -sI <Repo URL>` 不返回 301/302 |
+| `tools check scripts` | 确认无自定义脚本问题 | 无需特别验证 |
+| **`fdroid build`** | Docker buildserver `fdroid build` | `BUILD SUCCESSFUL` + RB 比对通过（若启用） |
 
 验证矩阵（每次推送 MR 前必须全部通过）：
-- [ ] `fdroid lint com.airscan.qr` 无错误
-- [ ] Docker buildserver `fdroid build` 出现 `BUILD SUCCESSFUL`
+- [ ] `schema validation` — Categories 等字段值合法
+- [ ] `fdroid lint` — exit 0
+- [ ] `fdroid rewritemeta` — 无 diff
+- [ ] `fdroid scanner` — 无专有依赖
+- [ ] `fdroid build` — `BUILD SUCCESSFUL`
 - [ ] 若启用了 `Binaries`/`AllowedAPKSigningKeys`，日志出现 `compared built binary to supplied reference binary successfully`（RB 验证通过）
-- [ ] 0 个 `ERROR`（scanner 的 ZIP/JAR 拒绝、签名不匹配等都算失败）
+- [ ] 0 个 `ERROR`
 
-只有全部通过后，才执行第 3 步（推送 fdroiddata + 评论请求 CI）。本地验证中发现的问题（wrapper 缺失、ZIP 需 scandelete、签名密钥不匹配等）一律在本地修完再推。
+只有全部通过后，才执行第 3 步（推送 fdroiddata + 评论请求 CI）。本地验证中发现的问题（wrapper 缺失、ZIP 需 scandelete、签名密钥不匹配、Categories 名称错误、rewritemeta 格式不对等）一律在本地修完再推。
+
+> 最高效的本地验证方式：在 `/tmp/fdroiddata` 目录中运行 `fdroid lint` + `fdroid rewritemeta` + `fdroid scanner`，在 `/tmp/fdroid-local-build` 中运行 `fdroid build`。两个目录都挂载到 Docker buildserver 镜像。
 
 ## 核心原则：回复维护者前必须经用户确认
 
