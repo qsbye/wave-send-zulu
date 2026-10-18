@@ -13,8 +13,8 @@ android {
         applicationId 'com.airscan.qr'
         minSdk 24
         targetSdk 34
-        versionCode 26
-        versionName '26.10.8.18'
+        versionCode 27
+        versionName '26.10.18.1704'
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
