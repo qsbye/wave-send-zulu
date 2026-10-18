@@ -318,19 +318,25 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 16. **GitHub Release 必须与 yml commit 对齐**：F-Droid `UpdateCheckMode: Tags` 依赖 tag，GitHub Release 也应指向同一 tag/commit。若最新 Release 版本落后于 yml，需为当前 tag 创建 GitHub Release（`gh release create <tag> <apk> --title "..." --notes "..." --target <branch>`），并确认 tag 与 yml `commit` 完全一致
 17. **aapt2 daemon 启动死锁**：本地 Gradle 构建偶尔出现多个 WorkerExecutor 线程卡在 `Aapt2DaemonImpl.startProcess`（0 CPU、无产出）。处理：杀 gradlew + aapt2 进程，`gradle --stop`，清理 `~/.gradle/caches/**/*.lock`，用 `--no-daemon` 重跑
 
-## 进阶：可复现构建（Reproducible Builds，可选）
+## 进阶：可复现构建（Reproducible Builds）
 
-52314 通过 RB 路线获得 `reproducible-builds` label，F-Droid 直接分发作者签名的 APK（用户可在 GitHub/F-Droid 版本间互换无需重装）。做法：
+维护者会要求添加 `Binaries` + `AllowedAPKSigningKeys` 启用 RB。F-Droid 直接分发作者签名的 APK（用户可在 GitHub/F-Droid 版本间互换无需重装）。
 
-1. metadata 增加：
+1. metadata 增加（顶层字段，不在 Builds 块内）：
    ```yaml
-   Binaries: https://github.com/<owner>/<repo>/releases/download/v%v/<app>-%v.apk
+   Binaries: https://github.com/<owner>/<repo>/releases/download/%v/<app>-%v.apk
    AllowedAPKSigningKeys: <release 证书 SHA-256，小写无冒号>
    ```
-2. **本地验证**：用 CI 同一 commit 构建 release APK，与 GitHub Release 的签名 APK 执行 `apksigcopier compare local.apk released.apk`，通过后才在 MR 勾选 RB 项
-3. 前置条件：坑 12（LF）、坑 13（关闭 dependenciesInfo）必须先修复，否则字节级比对必然失败
+   - `Binaries` URL 必须能用 `%v`（versionName）和/或 `%c`（versionCode）推导，文件名须与 GitHub Release 资产完全一致
+   - `AllowedAPKSigningKeys` 获取：`apksigner verify --print-certs app.apk | grep SHA-256 | awk '{print $NF}' | tr -d ':' | tr 'A-Z' 'a-z'`
+2. **GitHub Release 的 APK 必须用 Linux buildserver 环境构建**（不要用 macOS 构建的 APK）：
+   - 用流程第 5 步的 Docker buildserver 构建，取 `unsigned/com.airscan.qr_<vc>.apk` 或 `build/<app>/app/build/outputs/apk/release/app-release-unsigned.apk`
+   - 用 release keystore 签名后上传到 GitHub Release（`gh release upload <tag> <apk> --repo <owner>/<repo>`）
+   - 原因：F-Droid CI 在 Linux 构建，macOS 构建的 APK 字节级不一致会导致 RB 失败
+3. **本地验证**：用 CI 同一 commit 构建 release APK，与 GitHub Release 的签名 APK 执行 `apksigcopier compare local.apk released.apk`，通过后才在 MR 勾选 RB 项
+4. 前置条件：坑 12（LF）、坑 13（关闭 dependenciesInfo）必须先修复，否则字节级比对必然失败
 
-> 本项目当前为 F-Droid 统一签名模式（未启用 RB）；若将来想切换，按本节改造并在 MR 中说明。
+> 本项目已启用 RB：`Binaries` 指向 GitHub Release，`AllowedAPKSigningKeys` = `2fb54f5c...`。签名 keystore（`airscan-release.keystore`）务必备份，丢失则无法更新 RB 版本。
 
 ## F-Droid 合规清单（每次提交前自查）
 
