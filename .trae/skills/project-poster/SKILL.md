@@ -19,8 +19,8 @@ description: 为 AirFountainZulu 项目生成宣传海报（HTML 固定画布 �
 
 - `README.md` — 项目定位一句话、核心特性列表、技术栈表、限制说明
 - `screenshots/` — 真机截图（android-main.png、android-qr-lock.png、android-demo.gif 等），海报用 PNG 帧，GIF 取代表帧
-- 版本信息：`git tag | tail -1` 与 `gh release view <tag> --repo qsbye/wave-send-zulu`
-- 仓库链接：`https://github.com/qsbye/wave-send-zulu`
+- 版本信息：`git tag --sort=-creatordate | head -1` 与 `gh release view <tag> --repo qsbye/wave-send-zulu`
+- 仓库链接：`https://github.com/qsbye/wave-send-zulu/tree/ggwave-fountain-android`（**必须带分支名**，见行动区链接规则）
 - 高信号指标候选（只取可验证的）：三端逐位兼容 / 72 项单测 / 双信道互补（光 + 声）/ 零网络气隙传输 / F-Droid FOSS 合规 / 4.2MB 接收实测
 
 ## 第二步：选规格（固定 CSS 画布，禁止视口缩放字号）
@@ -50,11 +50,16 @@ description: 为 AirFountainZulu 项目生成宣传海报（HTML 固定画布 �
 - 嵌套卡片不套卡片；同类指标卡必须视觉平行
 - flex 分栏记得 `flex-shrink: 0`，否则面板会被压缩出隐藏溢出
 
-## 视觉主题（贴合光传输项目）
+## 视觉主题（大地色系）
 
-- 深色科技底（深蓝黑 #0b1220 系）+ 青色光波/声波曲线点缀（对应二维码光信道与 ggwave 频谱），截图卡用浅色描边跳出背景
-- 或浅色学术风（白底 + 深藏青节头 + 绿/红仅用于结果强调），与截图原生风格一致
-- 二选一保持全海报统一；强调色最多一主一辅
+- 底色米色/亚麻 `#f4ede2`，卡片奶白 `#faf6ef`、描边 `#e0d4c2`；标题深棕 `#4a3728`，次级文字 `#8a7a66`
+- 强调色一主一辅：赤陶土 `#b06a4f`（光信道/主 CTA）+ 橄榄绿 `#6b6242`（声波/成功项）；辅以奶茶 `#d9c7b2`、驼色 `#c19a6b` 过渡
+- 背景装饰用赤陶土/橄榄绿的贝塞尔光波/声波曲线，呼应双信道；截图卡用暖棕描边跳出米色底
+- 全海报禁用高饱和荧光色，保持低饱和、中低明度的大地质感（参考 docs/ 大地色系配色指南）
+
+## 行动区链接规则
+
+- **项目 GitHub 链接必须携带分支名**：本分支 `ggwave-fountain-android` 未合并到 main，直接给仓库主页会看不到本项目最新代码。统一使用 `https://github.com/qsbye/wave-send-zulu/tree/ggwave-fountain-android`，并在链接旁标注分支名；合并 main 后才可改回仓库主页
 
 ## 第四步：渲染与 QA（必须实际渲染，不得凭空声称正确）
 
