@@ -70,6 +70,8 @@ git push github <versionName>            # 远程已有同名 tag 时加 --force
 
 **必备字段清单**（统计自 2026-10 近期合并的 6 个 New App MR，出现频率 6/6）：`Categories`、`License`、`AuthorName`（易漏！官方 checklist 硬性要求，可用网名）、`SourceCode`、`IssueTracker`、`AutoName`、`RepoType`、`Repo`、`Builds`、`AutoUpdateMode`、`UpdateCheckMode`、`CurrentVersion`、`CurrentVersionCode`。高频可选：`Changelog`（4/6，指向 releases 页）、`Binaries`+`AllowedAPKSigningKeys`（5/6，RB 已成主流）。
 
+> **⚠️ Gradle Wrapper 必须存在**：F-Droid 的 `gradlew-fdroid` 读取 `gradle/wrapper/gradle-wrapper.properties` 中的 `distributionUrl` 来从 gradle-transparency-log 选择 Gradle 版本。**没有 wrapper 文件会直接报 `No suitable gradle version found` 导致 build 失败**。本项目 AGP 8.7.3 要求 Gradle 8.10+，使用 8.11.1（在透明度日志中）。生成方式：`gradle wrapper --gradle-version 8.11.1 --distribution-type bin`，提交 `gradle/wrapper/gradle-wrapper.properties`、`gradle/wrapper/gradle-wrapper.jar`、`gradlew`、`gradlew.bat`。F-Droid 构建时会删除并重新验证 `gradle-wrapper.jar`（安全机制），属正常行为。
+
 metadata **不写任何注释**（rewritemeta 会剥离，且中文注释不合社区惯例）；单条命令的 `prebuild`/`build` 写单行流式（`prebuild: sed ...`），这是 rewritemeta 的规范化输出。
 
 ```yaml
@@ -81,7 +83,11 @@ Builds:
     gradle:
       - yes
     prebuild: sed -i -e '/include .:desktop./d' -e '/include .:web./d' ../settings.gradle
+    scandelete:
+      - <源码中需排除的 ZIP/JAR/二进制文件路径>
 ```
+
+> **`scandelete` 必须处理所有非源码归档文件**：F-Droid scanner 会拒绝源码中的 `.zip`/`.jar`/`.apk` 等归档文件（可能隐藏预编译二进制或专有代码），报 `Found ZIP file archive at ...` 并使 build 失败。本项目当前需排除：`docs/AI-QR-Code-Decoder-main/qrcode.zip`（QR 测试图片集）、`poster/Skill2Poster-main.zip`（参考工具归档）。新增非源码归档时务必同步加入 `scandelete`。
 
 同时更新末尾：
 
@@ -233,6 +239,42 @@ cd /tmp/fdroidlint && /tmp/fdroid_env/bin/fdroid lint com.airscan.qr
 
 > 类别 `Connectivity`/`System` 报 "not valid" 是误报（本地未加载 fdroiddata categories 配置），实际是有效类别。
 
+### 5. 本地 buildserver 验证 build（强烈推荐，不依赖 GitLab CI）
+
+GitLab 免费账户需身份验证才能跑 CI（见坑 9）。在请求维护者触发 CI 前，**必须**用 F-Droid 官方 buildserver 镜像本地验证完整 build 流程，提前发现 wrapper/scandelete 等问题。
+
+```bash
+# 准备工作区
+WORK=/tmp/fdroid-local-build
+rm -rf "$WORK" && mkdir -p "$WORK/metadata" "$WORK/build"
+cp <项目根>/fdroid/com.airscan.qr.yml "$WORK/metadata/com.airscan.qr.yml"
+# 拉取镜像（1.5GB+）
+docker pull registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
+# 运行完整 build（Apple Silicon 需 --platform linux/amd64，QEMU 模拟较慢）
+docker run --rm --platform linux/amd64 \
+  -v "$WORK:/workspace" -w /workspace \
+  registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie \
+  bash -c '
+    export ANDROID_HOME=/opt/android-sdk
+    export PATH=/opt/android-sdk/tools:/opt/android-sdk/platform-tools:$PATH
+    export fdroidserver=/home/vagrant/fdroidserver
+    rm -rf $fdroidserver
+    git clone --shallow-since=2026-07-13 https://gitlab.com/fdroid/fdroidserver.git $fdroidserver
+    git -C $fdroidserver config transfer.fsckObjects true
+    git -C $fdroidserver checkout -B master a35fdfddd9c66823987a410566a6101186e39c84
+    git -C $fdroidserver pull origin master --ff-only
+    export PATH="$fdroidserver:$PATH"
+    export PYTHONPATH="$fdroidserver:$fdroidserver/examples"
+    export PYTHONUNBUFFERED=true serverwebroot=/tmp
+    sdkmanager "platform-tools" "build-tools;31.0.0" "platforms;android-34"
+    fdroid build --verbose --on-server --no-tarball com.airscan.qr:<versionCode>
+  '
+```
+
+成功标志：日志出现 `BUILD SUCCESSFUL` 和 `INFO: Successfully built com.airscan.qr:<vc>`。产物在 `$WORK/unsigned/`。
+
+> 注意：buildserver 镜像为 amd64，在 Apple Silicon 上通过 QEMU 运行，gradle 构建约需 6-10 分钟。
+
 ## 关键坑（实测）
 
 ### 扫描器（fdroid scanner + SUSS 签名库）
@@ -260,7 +302,7 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 6. **中文路径构建**：本地构建需用 `build-with-timestamp` skill 暂存到全英文路径，Kotlin 守护进程会把中文路径转义成乱码
 7. **MR 全程英文**：标题、描述、评论必须全英文，维护者只看英文。首次收录用 App inclusion 模板，更新用 App update 模板
 8. **yamllint `comments-indentation`**：`prebuild:` 下的注释必须与 `- sed` 列表项同级缩进，不能放在父级缩进，否则 `fdroid lint` 报 `comment not indented like content`
-9. **GitLab 身份验证 → 主动请求维护者触发 CI**：免费账户未绑信用卡时 fork 的 CI pipeline 会 0 job 立即失败（`Identity verification is required in order to run CI jobs`）。**不要干等或反复重试**——成功先例 MR 52314 的做法：在 MR 描述 Pipeline 项直接写明原因并请求 "Could a maintainer please trigger the CI?"，维护者（linsui）响应很快，每次修复后再评论礼貌请求重新触发即可
+9. **GitLab 身份验证 → 主动请求维护者触发 CI**：免费账户未绑信用卡时 fork 的 CI pipeline 会 0 job 立即失败（`Identity verification is required in order to run CI jobs`），即使账户有 400 分钟 quota 也无法使用。**不要干等或反复重试**——成功先例 MR 52314 的做法：在 MR 描述 Pipeline 项直接写明原因并请求 "Could a maintainer please trigger the CI?"，维护者（linsui）响应很快，每次修复后再评论礼貌请求重新触发即可。**替代方案**：用本地 buildserver Docker 镜像验证 build（见流程第 5 步），不依赖 GitLab CI
 10. **本地 lint 必跑**：提交前用 `fdroid lint com.airscan.qr` 验证 metadata（见流程第 4 步）。类别 "not valid" 是误报
 11. **`rewritemeta` 折行因 ruamel.yaml 版本而异**：长字段（`Binaries`/`AllowedAPKSigningKeys`）的折行方式，本地新版 ruamel.yaml（0.19.1）与 CI 的 Debian 版（0.18.10）不同——以 CI job `fdroid rewritemeta` 的 diff 输出为准逐字节对齐，不要凭本地结果猜
 12. **`.gitattributes` 强制 LF**：Windows 检出会把文本资产转成 CRLF，导致 CI 构建产物与本地不一致（52314 的首次 RB 失败根因是字体 license 文件行尾差异）。确保仓库根 `.gitattributes` 含 `* text=auto eol=lf`
@@ -272,6 +314,9 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
     }
     ```
 14. **帮助 review 其他待审 MR 可加速自己的审核**：维护者明确表示 review 队列很长，参与 [reviewing new apps](https://gitlab.com/fdroid/wiki/-/wikis/Internal/Reviewing-new-apps) 能加快整体流转
+15. **GitLab MR API 用 target project ID**：MR 存在于目标项目 `fdroid/fdroiddata`（ID `36528`），而非 fork（`87775010`）。发评论/查状态用 `https://gitlab.com/api/v4/projects/36528/merge_requests/<iid>/notes`，用 fork ID 会 404
+16. **GitHub Release 必须与 yml commit 对齐**：F-Droid `UpdateCheckMode: Tags` 依赖 tag，GitHub Release 也应指向同一 tag/commit。若最新 Release 版本落后于 yml，需为当前 tag 创建 GitHub Release（`gh release create <tag> <apk> --title "..." --notes "..." --target <branch>`），并确认 tag 与 yml `commit` 完全一致
+17. **aapt2 daemon 启动死锁**：本地 Gradle 构建偶尔出现多个 WorkerExecutor 线程卡在 `Aapt2DaemonImpl.startProcess`（0 CPU、无产出）。处理：杀 gradlew + aapt2 进程，`gradle --stop`，清理 `~/.gradle/caches/**/*.lock`，用 `--no-daemon` 重跑
 
 ## 进阶：可复现构建（Reproducible Builds，可选）
 
@@ -292,10 +337,12 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 - [ ] 源码仓库公开 + LICENSE 文件存在（MIT）
 - [ ] 所有依赖均为 FOSS（无 mlkit / play-services / firebase）
 - [ ] release 签名配置为 keystore 存在性判断（非硬编码必选）
+- [ ] `gradle/wrapper/` 存在（`gradle-wrapper.properties` + `gradle-wrapper.jar` + `gradlew` + `gradlew.bat`），Gradle 版本匹配 AGP 且在 F-Droid 透明度日志中
 - [ ] `fastlane/metadata/android/en-US/` 含 short_description（<80 字符无尾点）、full_description、icon.png、phoneScreenshots、changelogs/<versionCode>.txt
-- [ ] tag 名 = versionName，指向正确提交
-- [ ] `fdroid/com.airscan.qr.yml` 的 Builds 块 commit 为完整 40 位哈希、versionName/versionCode 与 tag 一致；首次收录只保留最新一个 Builds 块
+- [ ] tag 名 = versionName，指向正确提交；GitHub 最新 Release 与 yml commit 一致
+- [ ] `fdroid/com.airscan.qr.yml` 的 Builds 块 commit 为完整 40 位哈希、versionName/versionCode 与 tag 一致；`scandelete` 覆盖所有非源码 ZIP/JAR；首次收录只保留最新一个 Builds 块
 - [ ] `fdroid lint com.airscan.qr` 本地通过（类别 not valid 可忽略）；`fdroid rewritemeta` 无 diff
+- [ ] **本地 buildserver Docker 验证 `fdroid build` 通过**（见流程第 5 步），出现 `BUILD SUCCESSFUL`
 - [ ] `.gitattributes` 含 `* text=auto eol=lf`；`dependenciesInfo { includeInApk = false; includeInBundle = false }` 已配置
 - [ ] MR 标题、描述、评论全英文，按官方 App inclusion 模板填写（每勾选附本项目具体证据）
 - [ ] MR 描述 Pipeline 项已写明 GitLab 身份验证问题并请求维护者手动触发 CI
