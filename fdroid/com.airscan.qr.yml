@@ -13,9 +13,9 @@ RepoType: git
 Repo: https://github.com/qsbye/wave-send-zulu.git
 
 Builds:
-  - versionName: 26.10.18.1704
-    versionCode: 27
-    commit: 83a23e9110092b4d4cf591c91e5c2ecb5356f91d
+  - versionName: 26.10.18.18
+    versionCode: 28
+    commit: 842929c6638ad5eececded280360ccf7154ad318
     subdir: app
     gradle:
       - yes
