@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -91,11 +93,12 @@ fun ReceiverScreen(vm: ReceiverViewModel = viewModel()) {
             CameraPreview(modifier = Modifier.fillMaxSize(), onFrame = vm::onFrame)
         }
 
-        // 半透明信息层
+        // 半透明信息层（卡片多时允许上下滚动，保证完成卡完整可见）
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (!granted) {
@@ -137,10 +140,6 @@ fun ReceiverScreen(vm: ReceiverViewModel = viewModel()) {
                 },
                 onModeChange = vm::setAudioUltraSound,
             )
-
-            if (granted && state.completed == null) {
-                Spacer(Modifier.weight(1f))
-            }
 
             state.completed?.let { done ->
                 CompletedCard(

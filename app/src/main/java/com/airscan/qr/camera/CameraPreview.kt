@@ -17,9 +17,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size as ComposeSize
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -56,8 +55,8 @@ fun CameraPreview(
     val context: Context = LocalContext.current
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
     val analysisExecutor: ExecutorService = remember { CameraExecutors.analysis }
-    // 最新检出的二维码包围盒（null = 当前未锁定），由分析线程回调更新
-    var qrBox by remember { mutableStateOf<QrBox?>(null) }
+    // 最新检出的二维码四角点（null = 当前未锁定），由分析线程回调更新
+    var qrBox by remember { mutableStateOf<QrQuad?>(null) }
     // 离开界面后异步绑定完成时需要能感知，避免相机被泄漏绑定。
     val disposed = remember { booleanArrayOf(false) }
     val previewView = remember {
@@ -100,7 +99,7 @@ fun CameraPreview(
                                 QrAnalyzer(
                                     analysisExecutor,
                                     onFrame,
-                                ) { box -> qrBox = box },
+                                ) { quad -> qrBox = quad },
                             )
                         }
 
@@ -125,24 +124,27 @@ fun CameraPreview(
 
 /**
  * 检出二维码时叠加蓝色虚线锁定框。
- * 分析帧坐标按 PreviewView FILL_CENTER 规则映射：
- * 等比放大至铺满视口（短边居中裁剪）。
+ * 分析帧坐标按 PreviewView FILL_CENTER 规则映射（等比放大至铺满视口，
+ * 短边居中裁剪）；框体为四角点连成的多边形，跟随二维码的旋转与透视畸变。
  */
 @Composable
-private fun QRBoxOverlay(box: QrBox?, modifier: Modifier = Modifier) {
+private fun QRBoxOverlay(box: QrQuad?, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val b = box ?: return@Canvas
-        if (b.frameWidth <= 0 || b.frameHeight <= 0) return@Canvas
+        if (b.frameWidth <= 0 || b.frameHeight <= 0 || b.points.size < 8) return@Canvas
         val scale = max(size.width / b.frameWidth, size.height / b.frameHeight)
         val dx = (size.width - b.frameWidth * scale) / 2f
         val dy = (size.height - b.frameHeight * scale) / 2f
-        drawRect(
+        val path = Path().apply {
+            moveTo(b.points[0] * scale + dx, b.points[1] * scale + dy)
+            for (i in 1 until 4) {
+                lineTo(b.points[i * 2] * scale + dx, b.points[i * 2 + 1] * scale + dy)
+            }
+            close()
+        }
+        drawPath(
+            path = path,
             color = Color(0xFF3D8BFF),
-            topLeft = Offset(b.left * scale + dx, b.top * scale + dy),
-            size = ComposeSize(
-                width = (b.right - b.left) * scale,
-                height = (b.bottom - b.top) * scale,
-            ),
             style = Stroke(
                 width = 6f,
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(28f, 18f)),

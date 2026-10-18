@@ -1,6 +1,5 @@
 package com.airscan.qr.camera
 
-import android.graphics.Rect
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
@@ -12,14 +11,13 @@ import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executor
 
 /**
- * 检出二维码在"摆正后"帧画面中的包围盒（像素坐标）。
- * frameWidth/frameHeight 为摆正后帧尺寸，供 FILL_CENTER 预览映射使用。
+ * 检出二维码的四角点坐标（"摆正后"帧画面，像素）。
+ * 四点按 ML Kit 顺序（顺时针，起于左上），跟随二维码的旋转与透视畸变，
+ * 可直接连成多边形；frameWidth/frameHeight 供 FILL_CENTER 预览映射使用。
  */
-data class QrBox(
-    val left: Float,
-    val top: Float,
-    val right: Float,
-    val bottom: Float,
+data class QrQuad(
+    /** [x0,y0, x1,y1, x2,y2, x3,y3]，顺序：左上/右上/右下/左下 */
+    val points: FloatArray,
     val frameWidth: Int,
     val frameHeight: Int,
 )
@@ -33,7 +31,7 @@ data class QrBox(
 class QrAnalyzer(
     private val callbackExecutor: Executor,
     private val onFrame: (ByteArray) -> Unit,
-    private val onBox: (QrBox?) -> Unit = {},
+    private val onQuad: (QrQuad?) -> Unit = {},
 ) : ImageAnalysis.Analyzer {
 
     private val scanner = BarcodeScanning.getClient(
@@ -59,26 +57,43 @@ class QrAnalyzer(
         )
         scanner.process(image)
             .addOnSuccessListener(callbackExecutor) { barcodes ->
-                var box: QrBox? = null
+                var quad: QrQuad? = null
                 for (code in barcodes) {
                     val raw = code.rawBytes ?: continue
-                    if (box == null) {
-                        val bb: Rect? = code.boundingBox
-                        if (bb != null && uprightW > 0 && uprightH > 0) {
-                            box = QrBox(
-                                left = bb.left.toFloat(),
-                                top = bb.top.toFloat(),
-                                right = bb.right.toFloat(),
-                                bottom = bb.bottom.toFloat(),
+                    if (quad == null) {
+                        // 四角点跟随二维码旋转/透视；缺失时退化为轴对齐包围盒
+                        val pts = code.cornerPoints
+                        if (pts != null && pts.size == 4 && uprightW > 0 && uprightH > 0) {
+                            quad = QrQuad(
+                                points = floatArrayOf(
+                                    pts[0].x.toFloat(), pts[0].y.toFloat(),
+                                    pts[1].x.toFloat(), pts[1].y.toFloat(),
+                                    pts[2].x.toFloat(), pts[2].y.toFloat(),
+                                    pts[3].x.toFloat(), pts[3].y.toFloat(),
+                                ),
                                 frameWidth = uprightW,
                                 frameHeight = uprightH,
                             )
+                        } else {
+                            val bb = code.boundingBox
+                            if (bb != null && uprightW > 0 && uprightH > 0) {
+                                quad = QrQuad(
+                                    points = floatArrayOf(
+                                        bb.left.toFloat(), bb.top.toFloat(),
+                                        bb.right.toFloat(), bb.top.toFloat(),
+                                        bb.right.toFloat(), bb.bottom.toFloat(),
+                                        bb.left.toFloat(), bb.bottom.toFloat(),
+                                    ),
+                                    frameWidth = uprightW,
+                                    frameHeight = uprightH,
+                                )
+                            }
                         }
                     }
                     onFrame(raw)
                 }
                 // null = 本帧未检出二维码 → UI 清除锁定框
-                onBox(box)
+                onQuad(quad)
             }
             .addOnCompleteListener { imageProxy.close() }
     }
