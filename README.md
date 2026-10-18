@@ -17,21 +17,28 @@
 
 ## 界面截图
 
-![Android 接收页：喷泉码流已锁定，声波接收显示锁定倒计时（预计 24s 后锁定）与实时贝塞尔频谱包络曲线](screenshots/android-main.png)
-
-*接收页运行实拍：已锁定喷泉码数据流（进度/会话/块数），摄像头与声波双通道开关，声波卡内为锁定倒计时、可听/超声档位切换、实时频谱包络与接收进度详情（80% 半透明卡片，可透视底层画面）。*
-
-![传输进行中的动态演示（15fps GIF）](screenshots/android-demo.gif)
-
-*6 秒传输动态演示：进度条/贝塞尔波形/两类倒计时实时变化。*
-
-![4.2MB 文件接收实况（15fps GIF）](screenshots/android-receiver-live.gif)
-
-*大文件接收实况：9172 块 × 478B、新帧/重复计数持续累积、传输剩余时间与声波锁定倒计时并行刷新。*
-
-![二维码检出时的蓝色虚线锁定框](screenshots/android-qr-lock.png)
-
-*检出二维码后叠加蓝色虚线锁定框，实时贴合目标二维码；完成卡自动保存路径、SHA-256（小字号防溢出）与「另存为」入口。*
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/android-main.png" width="100%" alt="接收页主视图"/><br/>
+      <sub><b>接收页</b>：已锁定数据流，声波锁定倒计时、档位切换、贝塞尔频谱包络与进度详情（80% 半透明卡片）</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/android-qr-lock.png" width="100%" alt="二维码锁定框"/><br/>
+      <sub><b>锁定框</b>：检出二维码后叠加蓝色虚线四角框，仿射贴合旋转/透视；完成卡含自动保存路径与 SHA-256</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/android-demo.gif" width="100%" alt="6 秒传输演示"/><br/>
+      <sub><b>6 秒动态演示</b>：进度条 / 贝塞尔波形 / 传输剩余与声波锁定双倒计时实时变化</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/android-receiver-live.gif" width="100%" alt="4.2MB 接收实况"/><br/>
+      <sub><b>4.2MB 接收实况</b>：9172 块 × 478B，新帧/重复计数持续累积，双倒计时并行刷新</sub>
+    </td>
+  </tr>
+</table>
 
 ## 项目结构
 
