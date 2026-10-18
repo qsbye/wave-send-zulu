@@ -90,7 +90,9 @@ fun CameraPreview(
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
                     val analysis = ImageAnalysis.Builder()
-                        .setTargetResolution(Size(1280, 720))
+                        // 请求更高分辨率：部分设备（如 EMUI）会给出方形流，
+                        // 分辨率越高每个 QR 模块的像素数越多，解码越稳
+                        .setTargetResolution(android.util.Size(1920, 1080))
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
                         .also {

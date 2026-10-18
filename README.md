@@ -11,7 +11,8 @@
 - **DCF2 容器**：自动保留文件名/MIME 类型，可选 gzip 压缩，SHA-256 完整性校验
 - **声波通道**：纯 Kotlin 全量移植 [ggwave](https://github.com/ggerganov/ggwave)，大帧拆 64B 声波段传输、接收端重组还原原始帧，与二维码通道共用同一 LT 解码器
 - **声波可视化与省电开关**：收发两端实时贝塞尔频谱包络曲线（Catmull-Rom 平滑），接收页附进度详情（进度/新帧/重复/冗余/会话/块数）与剩余时间预计；接收端可关闭摄像头改纯声波接收省电，卡片 80% 半透明便于观察二维码
-- **二维码锁定框仿射跟随**：检出二维码后叠加蓝色虚线四角框（ML Kit cornerPoints），实时跟随旋转与透视畸变；信息层可滚动，完成卡不溢出
+- **二维码锁定框仿射跟随**：检出二维码后叠加蓝色虚线四角框（ZXing 定位点 + 第 4 角平行四边形推算），实时跟随旋转与透视畸变；信息层可滚动，完成卡不溢出
+- **三级集成解码链**：Hybrid/全局直方图快路径 → 半分辨率定位裁剪（排除眩光带/阴影带）→ Sauvola 局部自适应阈值兜底，对屏幕拍摄的低对比度、眩光、摩尔纹远比单一二值化鲁棒
 - **跨平台**：Android（Jetpack Compose）+ Windows 桌面（Compose Multiplatform）+ Web（Kotlin/Wasm + Compose Multiplatform Web），三端逐位兼容，声波协议亦可跨端互通
 - **单文件 Web 版**：Kotlin/Wasm 编译产物内联为单个 HTML（约 6 MB），双击即用、完全离线、无服务器依赖；二维码编码走纯 Kotlin QrMatrix，扫码走浏览器 BarcodeDetector
 
@@ -60,7 +61,7 @@ AirFountainZulu/
 │       │   └── audio/
 │       │       └── AudioSegment.kt # 喷泉码帧 ↔ 64B 声波段 分段/重组协议
 │       ├── qr/                 # ZXing 二维码生成（字节模式 ISO-8859-1，ECC-L）
-│       ├── camera/             # CameraX 取景 + ML Kit 条码识别
+│       ├── camera/             # CameraX 取景 + ZXing 条码识别（三级解码链 + Sauvola 自适应阈值）
 │       ├── audio/              # AudioTrack 扬声器发送 + AudioRecord 麦克风接收
 │       ├── ui/                 # Compose 发送/接收界面（含声波开关）
 │       └── MainActivity.kt
@@ -82,7 +83,7 @@ AirFountainZulu/
 ├── web/tools/singlefile.py     # 内联脚本/wasm 生成单文件 HTML（fetch+XHR 拦截，file:// 可用）
 ├── launcher/
 │   └── Launcher.cs             # .NET 4 单文件启动器源码
-├── app/src/test/               # 单元测试（54 项：喷泉码/容器 + RS/FFT/ggwave 往返/段重组）
+├── app/src/test/               # 单元测试（72 项：喷泉码/容器 + RS/FFT/ggwave 往返/段重组 + QR 编解码/Sauvola）
 ├── build-with-timestamp.sh     # 一键构建脚本（robocopy 到全英文路径再构建）
 └── airscan-release.keystore    # 签名密钥库
 ```
@@ -100,7 +101,7 @@ AirFountainZulu/
 | 桌面声波 | javax.sound.sampled（SourceDataLine / TargetDataLine），与 Android 线格式一致 |
 | 二维码生成 | ZXing core 3.5.3（字节模式，ISO-8859-1，纠错级 L） |
 | Web 二维码生成 | 纯 Kotlin QrMatrix（v1–40，纠错级 L，GF(2^8) RS 复用 ggwave），wasm 端无 zxing/AWT |
-| Android 扫码 | ML Kit Barcode Scanning 17.3.0（rawBytes 逐字节还原） |
+| Android 扫码 | ZXing QRCodeReader（ISO-8859-1 强制映射；三级解码链：Hybrid/GH → 半分辨率定位裁剪 → Sauvola 局部自适应阈值） |
 | 桌面端扫码 | ZXing QRCodeReader（CHARACTER_SET=ISO-8859-1 强制映射） |
 | Web 扫码 | 浏览器 BarcodeDetector API（Chrome/Edge，rawValue 逐字节映射） |
 | Web 单文件 | singlefile.py 内联 composeApp.js + 两个 wasm（gzip+base64），fetch+XHR 拦截兼容 file:// |
@@ -155,7 +156,7 @@ AirFountainZulu/
 ### 光信道：二维码调制 / 解调
 
 - **调制**：喷泉码帧（22B 头 + 块）→ ZXing 生成二维码（字节模式，ISO-8859-1 保证字节与码字 1:1 映射）→ 屏幕以 10–30 fps 逐帧刷新
-- **解调**：CameraX 逐帧取景 → ML Kit `rawBytes` 直接还原原始字节（不经文本转换）→ `classifyFrame` 校验 magic/版本 → `LTDecoder.addFrame`
+- **解调**：CameraX 逐帧取景 → ZXing 三级集成解码（全帧 Hybrid/GH 快路径 → 半分辨率 `Detector` 定位后角点外扩 25% 裁剪全分辨率、排除眩光/阴影带 → 全帧 Sauvola 局部自适应阈值兜底）逐字节还原 payload → `classifyFrame` 校验 magic/版本 → `LTDecoder.addFrame`
 - 二维码自带 Finder 图案定位与 RS 纠错；整帧解码失败即视为丢帧，由喷泉码吸收
 
 ### 声波信道：ggwave 多频 FSK 调制 / 解调
@@ -255,7 +256,7 @@ Compress-Archive -Path "D:\afz_build\desktop\build\compose\binaries\main\app\Air
 ### Android ↔ Android
 
 1. 发送端打开 App → 选择文件 → 点击「开始发送」
-2. 接收端打开 App → 切到「接收」→ 摄像头对准发送端屏幕——检出二维码后画面上会叠加**蓝色虚线锁定框**（按四角点仿射贴合，随二维码旋转/透视变形），移开即消失
+2. 接收端打开 App → 切到「接收」→ 摄像头对准发送端屏幕——**保持 25–35cm 距离**（太近会超出镜头最近对焦距离而失焦）——检出二维码后画面上会叠加**蓝色虚线锁定框**（按四角点仿射贴合，随二维码旋转/透视变形），移开即消失
 3. 进度条走满后文件**自动保存**到系统 `Download/AirFountainZulu/`（目录自动新建，无需存储权限），也可用「另存为…」选择其他位置；卡片较多时信息层可上下滚动，完成卡完整可见
 
 **开启声波双通道**：发送端在参数卡打开「声波发送（扬声器）」开关；接收端打开「声波接收（麦克风）」开关（首次弹出麦克风权限）。开启后二维码与声波同时收发，状态卡会显示声波信号检测情况。两档位均可选：可听声波（人耳可闻）或超声波（约 15 kHz，安静环境近距离使用）。
@@ -294,6 +295,7 @@ Compress-Archive -Path "D:\afz_build\desktop\build\compose\binaries\main\app\Air
 - 单文件上限 **64 MB**（`Container.MAX_FILE_BYTES`）
 - 最大帧载荷 1465B（二维码字节模式 ECC-L 容量约 2953B，留有余量）
 - 声波通道仅支持 ≤1600B（含 22B 头）的帧，且吞吐仅约 13 B/s，定位为兜底通道
+- Android 扫码建议保持 25–35cm 距离：更近会超出手机镜头最近对焦距离完全失焦，更远则 500B 大帧的每模块像素数会跌破 ZXing 解码极限
 - 超声档依赖扬声器/麦克风高频响应，多数笔记本麦克风 16 kHz 以上衰减严重，建议优先可听档
 - Windows 桌面版打包 MSI 安装包需要 WiX 工具链（本机网络受限时跳过，免安装版不受影响）
 - Android 需授权摄像头权限（扫码）与麦克风权限（声波接收）；桌面版需摄像头硬件
@@ -305,3 +307,4 @@ Compress-Archive -Path "D:\afz_build\desktop\build\compose\binaries\main\app\Air
 - [ggwave](https://github.com/ggerganov/ggwave) — 声波数据调制/解调库（MIT），本项目纯 Kotlin 全量移植并保持线格式兼容
 - [AirScan-QR](https://github.com/HMBSbige/AirScan-QR) — 普通 QR 顺序分片参考
 - [airgapped-qr-code-transfer](https://github.com/Ruk33/airgapped-qr-code-transfer) — 气隙传输参考
+- [AI-QR-Code-Decoder](https://github.com/Brainydaps/AI-QR-Code-Decoder) — 多假设冗余解码思想来源（本项目将其轻量化为多二值化 × 多尺度集成链）

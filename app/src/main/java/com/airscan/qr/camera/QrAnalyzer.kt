@@ -7,7 +7,6 @@ import androidx.camera.core.ImageProxy
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.DecodeHintType
 import com.google.zxing.PlanarYUVLuminanceSource
-import com.google.zxing.ResultPoint
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
 import java.util.EnumMap
@@ -52,8 +51,7 @@ class QrAnalyzer(
     @OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
         try {
-            val mediaImage = imageProxy.image
-            if (mediaImage == null) return
+            val mediaImage = imageProxy.image ?: return
             val rotation = imageProxy.imageInfo.rotationDegrees
             val srcW = mediaImage.width
             val srcH = mediaImage.height
@@ -63,24 +61,36 @@ class QrAnalyzer(
 
             val yPlane = imageProxy.planes[0]
             val rowStride = yPlane.rowStride
+            val pixelStride = yPlane.pixelStride
             val buffer = yPlane.buffer
-            val data = if (rowStride == srcW) {
-                ByteArray(buffer.remaining()).also { buffer.get(it) }
-            } else {
-                // 行步长与宽度不一致（存在对齐填充），逐行紧缩拷贝
-                val tight = ByteArray(srcW * srcH)
-                val row = ByteArray(srcW)
-                for (y in 0 until srcH) {
-                    buffer.position(y * rowStride)
-                    buffer.get(row)
-                    System.arraycopy(row, 0, tight, y * srcW, srcW)
+            val data = when {
+                pixelStride == 1 && rowStride == srcW ->
+                    ByteArray(buffer.remaining()).also { buffer.get(it) }
+                pixelStride == 1 -> {
+                    // 行步长与宽度不一致（存在对齐填充），逐行紧缩拷贝
+                    val tight = ByteArray(srcW * srcH)
+                    val row = ByteArray(srcW)
+                    for (y in 0 until srcH) {
+                        buffer.position(y * rowStride)
+                        buffer.get(row)
+                        System.arraycopy(row, 0, tight, y * srcW, srcW)
+                    }
+                    tight
                 }
-                tight
+                else -> {
+                    // 像素步长非 1（个别 ROM 的 YUV_420_888 实现），带步长抽取
+                    val tight = ByteArray(srcW * srcH)
+                    for (y in 0 until srcH) {
+                        buffer.position(y * rowStride)
+                        for (x in 0 until srcW) {
+                            tight[y * srcW + x] = buffer.get()
+                        }
+                    }
+                    tight
+                }
             }
 
-            val source = PlanarYUVLuminanceSource(data, srcW, srcH, 0, 0, srcW, srcH, false)
-            val bitmap = com.google.zxing.BinaryBitmap(HybridBinarizer(source))
-            val result = reader.decode(bitmap, hints)
+            val result = decodeEnsemble(data, srcW, srcH)
 
             // ZXing 仅给出 3 个定位图案中心，旋转到摆正坐标系后推算第 4 角
             val srcPoints = result.resultPoints ?: emptyArray()
@@ -150,5 +160,110 @@ class QrAnalyzer(
         val dx = p.first - q.first
         val dy = p.second - q.second
         return dx * dx + dy * dy
+    }
+
+    /**
+     * 多假设集成解码（借鉴 AI-QR-Code-Decoder 的"冗余证据集成"思想轻量化落地，
+     * 并采用"定位→裁剪→规整化→解码"流水线）：
+     * 1. 快路径：全帧 Hybrid / Global 直方图二值化直接解码；
+     * 2. 定位：在半分辨率帧上用 Detector 找定位图案（便宜），按几何外扩
+     *    裁剪全分辨率 QR 区域——排除边缘眩光带/阴影带干扰；
+     * 3. 对小裁剪区依次尝试 GH / Sauvola / Hybrid（区域小，Sauvola 成本可接受）；
+     * 4. 兜底：全帧 Sauvola 局部自适应阈值二值化
+     *    （参考《折腾笔记[47]》：T = mean * (1 + k * (std/R - 1))，
+     *    大窗口对屏幕拍摄特有的眩光/阴影/摩尔纹远比 Hybrid 的 8px 分块鲁棒）。
+     * 任一候选完整解出（含纠错）即返回，全部失败抛 NotFoundException。
+     */
+    private fun decodeEnsemble(data: ByteArray, srcW: Int, srcH: Int): com.google.zxing.Result {
+        val full = PlanarYUVLuminanceSource(data, srcW, srcH, 0, 0, srcW, srcH, false)
+        // 快路径
+        try {
+            return reader.decode(com.google.zxing.BinaryBitmap(HybridBinarizer(full)), hints)
+        } catch (_: Exception) { }
+        try {
+            return reader.decode(
+                com.google.zxing.BinaryBitmap(com.google.zxing.common.GlobalHistogramBinarizer(full)),
+                hints,
+            )
+        } catch (_: Exception) { }
+        // 定位阶段：半分辨率 GH 二值化上找定位图案
+        val halfW = srcW / 2
+        val halfH = srcH / 2
+        val half = PlanarYUVLuminanceSource(
+            boxDownsample(data, srcW, srcH), halfW, halfH, 0, 0, halfW, halfH, false,
+        )
+        try {
+            val halfBmp = com.google.zxing.BinaryBitmap(
+                com.google.zxing.common.GlobalHistogramBinarizer(half),
+            )
+            // Detector.detect 仅做图案定位（不跑纠错），找到即返回 4 个角点，
+            // 即使后续 ECC 会失败也可用作裁剪锚点
+            val points = com.google.zxing.qrcode.detector.Detector(halfBmp.blackMatrix).detect(hints).points
+            var minX = Float.MAX_VALUE; var maxX = -Float.MAX_VALUE
+            var minY = Float.MAX_VALUE; var maxY = -Float.MAX_VALUE
+            var diag = 0f
+            for (p in points) {
+                minX = minOf(minX, p.x); maxX = maxOf(maxX, p.x)
+                minY = minOf(minY, p.y); maxY = maxOf(maxY, p.y)
+            }
+            for (i in points.indices) for (j in i + 1 until points.size) {
+                val dx = points[i].x - points[j].x
+                val dy = points[i].y - points[j].y
+                diag = maxOf(diag, kotlin.math.sqrt(dx * dx + dy * dy))
+            }
+            // 半分辨率角点框外扩 25% 对角线（覆盖静区），×2 映射回全分辨率
+            val expand = diag * 0.25f
+            val left = ((minX - expand) * 2).toInt().coerceIn(0, srcW - 8)
+            val top = ((minY - expand) * 2).toInt().coerceIn(0, srcH - 8)
+            val size = ((maxOf(maxX - minX, maxY - minY) + 2 * expand) * 2)
+                .toInt().coerceAtMost(minOf(srcW - left, srcH - top))
+            if (size >= 64) {
+                val crop = PlanarYUVLuminanceSource(data, srcW, srcH, left, top, size, size, false)
+                try {
+                    return reader.decode(
+                        com.google.zxing.BinaryBitmap(
+                            com.google.zxing.common.GlobalHistogramBinarizer(crop),
+                        ),
+                        hints,
+                    )
+                } catch (_: Exception) { }
+                try {
+                    return reader.decode(
+                        com.google.zxing.BinaryBitmap(SauvolaBinarizer(crop, radius = 20)),
+                        hints,
+                    )
+                } catch (_: Exception) { }
+                try {
+                    return reader.decode(com.google.zxing.BinaryBitmap(HybridBinarizer(crop)), hints)
+                } catch (_: Exception) { }
+            }
+        } catch (_: Exception) { }
+        // 兜底：全帧 Sauvola
+        try {
+            return reader.decode(
+                com.google.zxing.BinaryBitmap(SauvolaBinarizer(full, radius = 25)),
+                hints,
+            )
+        } catch (_: Exception) { }
+        throw com.google.zxing.NotFoundException.getNotFoundInstance()
+    }
+
+    /** 2x2 盒式降采样（求平均），抑制摩尔纹并提升模块对比度。 */
+    private fun boxDownsample(data: ByteArray, w: Int, h: Int): ByteArray {
+        val outW = w / 2
+        val outH = h / 2
+        val out = ByteArray(outW * outH)
+        for (y in 0 until outH) {
+            val r0 = (2 * y) * w
+            val r1 = r0 + w
+            var o = y * outW
+            for (x in 0 until outW) {
+                val x2 = 2 * x
+                val avg = ((data[r0 + x2].toInt() and 0xFF) + (data[r0 + x2 + 1].toInt() and 0xFF) +
+                    (data[r1 + x2].toInt() and 0xFF) + (data[r1 + x2 + 1].toInt() and 0xFF) + 2) shr 2
+                out[o++] = avg.toByte()
+            }
+        }
+        return out
     }
 }

@@ -7,6 +7,7 @@ import com.google.zxing.common.GlobalHistogramBinarizer
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
+import com.airscan.qr.camera.SauvolaBinarizer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -47,7 +48,7 @@ class QrMatrixTest {
         for (scale in scales) {
             val (pixels, w, h) = render(code, scale)
             val source = RGBLuminanceSource(w, h, pixels)
-            for (bin in listOf(HybridBinarizer(source), GlobalHistogramBinarizer(source))) {
+            for (bin in listOf(HybridBinarizer(source), GlobalHistogramBinarizer(source), SauvolaBinarizer(source))) {
                 try {
                     val result = QRCodeReader().decode(BinaryBitmap(bin), hints)
                     val decoded = result.text.toByteArray(Charsets.ISO_8859_1)
