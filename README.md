@@ -1,122 +1,248 @@
-### WaveSend 电磁波文件传输
+# AirFountainZulu
 
-> 核心理念：**不要把电磁波当主信道传大文件，把它当"握手/桥接信道"，大文件走发现后的高速链路。**
+基于**喷泉码（Fountain Code / LT Code）**的跨网文件传输工具——不依赖 Wi-Fi、蓝牙、USB、网络，仅用**屏幕发光 + 摄像头拍摄**即可完成文件传输；还可开启**声波通道**（扬声器 + 麦克风）双通道并行互补。
 
-#### 背景与动机
+发送端屏幕高速播放二维码流，接收端摄像头对准屏幕即可自动锁定、重组、校验并还原文件。丢帧、乱序、中途加入均无感。开启声波后，同一喷泉码帧同时经二维码与声波两条信道发送，任一信道丢帧由另一条补齐。
 
-现有跨设备文件传输方案要么依赖中心化服务器（微信文件传输助手、Snapdrop 类网页工具），要么要求两端在同一局域网（LocalSend），要么需要扫码配对（各类快传）。WaveSend 的目标是：**无需服务器、无需同一局域网、无需摄像头扫码**，仅靠设备自带的物理收发器（扬声器/麦克风、屏幕/摄像头，甚至鼠标光传感器）完成设备发现和文件传输。
+## 核心特性
 
-这一路线已有若干先驱项目验证了可行性，但各自只覆盖了一部分场景。WaveSend 试图把它们整合成一个统一的框架：**用喷泉码抹平信道差异，用高速链路兜住带宽需求。**
+- **喷泉码传输**：LT 码无速率编码，任意帧序、任意丢帧、随时加入/离开
+- **自描述帧**：每帧携带完整 22 字节头部，无需握手协议，中途锁定流
+- **DCF2 容器**：自动保留文件名/MIME 类型，可选 gzip 压缩，SHA-256 完整性校验
+- **声波通道**：纯 Kotlin 全量移植 [ggwave](https://github.com/ggerganov/ggwave)，大帧拆 64B 声波段传输、接收端重组还原原始帧，与二维码通道共用同一 LT 解码器
+- **跨平台**：Android（Jetpack Compose）+ Windows 桌面（Compose Multiplatform），两端逐位兼容，声波协议亦可跨端互通
+- **单文件桌面版**：.NET 4 启动器内嵌完整运行时，双击即用
 
-#### 参考项目分析
-
-| 项目 | 介质 | 核心思路 | 速率 | 关键局限 |
-| --- | --- | --- | --- | --- |
-| [LocalSend](https://localsend.org/) | WiFi/局域网 | 局域网内 HTTP + REST 直连传文件，无需服务器 | ~MB/s 级 | 必须在同一局域网 |
-| [wave-share](https://github.com/ggerganov/wave-share) | 声波 | 声波只做 **WebRTC 信令**（SDP/ICE 约 112 字节），协商后走 LAN 传数据 | 声波 ~10 B/s，数据走 LAN | 信令慢（5-10 秒），需同 LAN |
-| [ggwave](https://github.com/ggerganov/ggwave) | 声波 | 独立的数据-声音编解码库（多频 FSK，6 音调 × 4bit，dF=46.875Hz） | ~几十 B/s | 只适合传短文本/密钥 |
-| [decimen-optical-transfer](https://github.com/bashalarmistalt/decimen-optical-transfer) | 光（屏幕→摄像头） | 喷泉码（Luby Transform）+ 动画 QR 流，无反向信道，任意顺序收够 K×1.15 个帧即解码 | 418 KB/s 实测 | 单向、无加密、需对准 |
-| [airgapped-qr-code-transfer](https://github.com/mohankumarelec/airgapped-qr-code-transfer) | 光 | QR 码分段静态轮播，简单但无 fountain 层 | 低 | 严格顺序/分块确认，丢帧即卡死 |
-
-**关键区分：误码信道 vs 擦除信道。** ggwave 走的多频 FSK + Reed-Solomon 针对的是误码信道（每个符号都可能错）；decimen 走的喷泉码针对的是擦除信道（帧要么完整收到要么算丢）。无反向信道时，喷泉码是唯一正确选择——顺序重传在没有 back-channel 时是 coupon-collector 灾难：丢 1% 的帧，尾部恢复时间趋近无穷。
-
-#### 喷泉码选型：LT vs RaptorQ
-
-喷泉码的核心思想：发送端不断生成"编码符号"（原始数据块的随机线性组合），接收端不需要指定顺序，也不需要请求重传，只要收集到足够数量的任意符号，就能高概率恢复全部原始数据。
-
-| 维度 | LT（Luby Transform，decimen 所用） | RaptorQ（RFC 6330） |
-| --- | --- | --- |
-| 解码开销 | O(K log K)，大 K 时变慢 | O(K)，恒定，几乎线性 |
-| 编码开销 | 每符号 O(log K) | 每符号 O(1)，向量化友好 |
-| 理论开销 | 需 ~1.15K 符号 | 可压到 1.02K 以下 |
-| 实现复杂度 | 几十行代码，可手搓 | 预编码矩阵 + 约束求解，通常依赖现成库 |
-| 现成实现 | 自研（decimen 即纯 TS 手搓） | libRaptorQ（C++）、OpenFEC、Kodo |
-
-**结论：信道层用 LT。** 光信道的瓶颈在摄像头帧率和屏幕刷新率（60 FPS × 3KB/帧 ≈ 180 KB/s），不在解码器 CPU。RaptorQ 的价值场景是"大文件 + 弱 CPU"（K 达几千以上），作为 V3 升级项即可。
-
-**LT 落地的三个工程要点：**
-
-1. **符号自足**：用 `seq` 号 + sessionId 经 PRNG 确定性推导出邻居子集（decimen 的做法），20 字节头部即可，不必像教科书那样把邻居列表塞进帧里。
-2. **跨平台确定性**：随机源必须是 IEEE-754 规定的浮点运算生成（decimen 特意如此，保证 V8 和 JavaScriptCore 算出的 robust soliton 分布一致）——否则发送端 iPhone、接收端 Android 的符号邻居对不上，直接死。这个坑任何跨平台实现都会踩。
-3. **块大小经验值**：帧有效载荷 ~3KB 时，块大小取 256-1024 字节，K 控制在 500-2000；60 FPS、20% 丢帧的典型手机场景，1.15 倍冗余 + 循环发送基本不卡尾部。
-
-#### 分层架构
+## 项目结构
 
 ```
-┌─────────────────────────────────────────────┐
-│ 应用层：文件选择 / 接收确认 / 进度 / 校验      │
-├─────────────────────────────────────────────┤
-│ 传输层：局域网 HTTP（LocalSend 式）           │  ← 主信道，MB/s 级
-│          WebRTC DataChannel（可扩展到公网）   │
-├─────────────────────────────────────────────┤
-│ 信道层 A：声波（ggwave 式多频 FSK）           │  ← 握手/短消息
-│ 信道层 C：鼠标光传感器（LED 对射）            │  ← 高隐蔽、零权限
-│ 信道层 B：光（decimen 式喷泉码 QR 流）        │  ← 无扬声器/安静场合/单向
-├─────────────────────────────────────────────┤
-│ 编解码层：LT 喷泉码、Reed-Solomon、SHA-256    │
-└─────────────────────────────────────────────┘
+AirFountainZulu/
+├── app/                        # Android 应用（Kotlin + Jetpack Compose）
+│   └── src/main/java/com/airscan/qr/
+│       ├── core/               # 喷泉码核心（纯 Kotlin，两端复用）
+│       │   ├── Prng.kt         # SplitMix32 确定性随机数
+│       │   ├── Fountain.kt     # LT 编解码器（编码/剥层解码）
+│       │   ├── Wire.kt         # 自描述帧协议（22B 小端头部）
+│       │   ├── Container.kt    # DCF2 文件容器（49B 头 + 可选 gzip + SHA-256）
+│       │   ├── ggwave/         # ggwave 纯 Kotlin 全量移植
+│       │   │   ├── Gf.kt           # GF(2^8) 有限域
+│       │   │   ├── ReedSolomon.kt  # RS 前向纠错（Berlekamp-Massey + Forney）
+│       │   │   ├── Rdft.kt         # Ooura 实数 FFT
+│       │   │   ├── Resampler.kt    # sinc 插值重采样
+│       │   │   └── GGWave.kt       # 调制/解调引擎（12 协议 + DSS）
+│       │   └── audio/
+│       │       └── AudioSegment.kt # 喷泉码帧 ↔ 64B 声波段 分段/重组协议
+│       ├── qr/                 # ZXing 二维码生成（字节模式 ISO-8859-1，ECC-L）
+│       ├── camera/             # CameraX 取景 + ML Kit 条码识别
+│       ├── audio/              # AudioTrack 扬声器发送 + AudioRecord 麦克风接收
+│       ├── ui/                 # Compose 发送/接收界面（含声波开关）
+│       └── MainActivity.kt
+├── desktop/                    # Windows 桌面应用（Compose Multiplatform）
+│   └── src/desktopMain/kotlin/com/airscan/zulu/
+│       ├── Main.kt             # 4:3 窗口（1024×768）
+│       ├── SenderTab.kt        # 发送端（文件选择 + 喷泉码播放 + 声波开关）
+│       ├── ReceiverTab.kt      # 接收端（webcam + 声波接收，双通道重组）
+│       ├── DesktopAudio.kt     # javax.sound.sampled 声波收发（与 Android 同协议）
+│       └── QrBitmap.kt         # 二维码渲染（与 Android 端参数一致）
+├── launcher/
+│   └── Launcher.cs             # .NET 4 单文件启动器源码
+├── app/src/test/               # 单元测试（54 项：喷泉码/容器 + RS/FFT/ggwave 往返/段重组）
+├── build-with-timestamp.sh     # 一键构建脚本（robocopy 到全英文路径再构建）
+└── airscan-release.keystore    # 签名密钥库
 ```
 
-**统一符号帧格式**：三个信道共用同一个 20 字节头（sessionId + seq + 块几何 + 文件长度 + hash）+ fountain 符号体的结构。信道只负责把符号送到，可靠性全部由喷泉码层兜底——这是"电磁波当握手信道"洞察在协议层的自然延伸。
+## 技术栈
 
-#### 信道层设计
+| 组件 | 技术 |
+|------|------|
+| Android | Kotlin 2.0 + Jetpack Compose (BOM 2024.10.01) |
+| 桌面端 | Compose Multiplatform 1.7.0 (JVM) |
+| 喷泉码 | 自研 LT 编解码（与 decimen v3 线格式兼容） |
+| 声波调制 | ggwave 纯 Kotlin 移植（16 进制音调 FSK + RS 纠错，MIT） |
+| Android 声波 | AudioTrack（MODE_STREAM 发送）+ AudioRecord（MIC 接收）48kHz 单声道 PCM16 |
+| 桌面声波 | javax.sound.sampled（SourceDataLine / TargetDataLine），与 Android 线格式一致 |
+| 二维码生成 | ZXing core 3.5.3（字节模式，ISO-8859-1，纠错级 L） |
+| Android 扫码 | ML Kit Barcode Scanning 17.3.0（rawBytes 逐字节还原） |
+| 桌面端扫码 | ZXing QRCodeReader（CHARACTER_SET=ISO-8859-1 强制映射） |
+| 桌面摄像头 | webcam-capture 0.3.12 |
+| 启动器 | .NET Framework 4.x（单文件 WinExe，内嵌 zip 自解压） |
 
-##### 信道 A：声波（握手/短消息）
+## 传输协议
 
-- 只传精简信令包（参考 wave-share 的 112 字节格式）：IP + 端口 + 会话 ID + 指纹 + ECC，5-10 秒完成握手，之后走 LAN。
-- 不要试图用声波传文件本体——ggwave 的有效带宽只有几十 B/s。
-- 调制参数：F0=1875Hz 起步、4.5kHz 带宽、96 频点；提供"快速/可靠"多档协议，嘈杂环境降速。
-- 信令包放大到 200-500 字节时（含文件名预览等），可在 RS 外层再套小型 fountain：发送端循环播 3-5 遍，接收端收够任意 N 个正确符号即解，天然容忍跨平台音频延迟抖动。
-- 已知坑：超声波（>15kHz）在多数手机扬声器上失真严重；iOS 浏览器对 WebRTC 内网 IP 获取已封。
+### 帧格式（22 字节小端头部 + 载荷）
 
-##### 信道 B：光（单向兜底）
+```
+ 0  u8   magic 0xD1
+ 1  u8   magic 0xC3
+ 2  u8   version = 3
+ 3  u8   flags
+ 4  u16  sessionId     每次发送随机生成
+ 6  u32  seq           帧序号（PRNG 种子输入）
+10  u16  k             源块数
+12  u16  blockLen      每帧载荷字节数
+14  u32  totalLen      DCF2 容器总长度
+18  u32  payloadFnv    容器 FNV-1a 哈希（完成后校验）
+22  ...  blockLen 字节喷泉码编码块
+```
 
-- 不在同一 LAN（如一台没连 WiFi）时退化为 decimen 模式：发送端把文件编码成 LT 符号的 QR 流循环播放，接收端摄像头收取任意 1.15K 个帧即可解码，天然抗丢帧。代价是速率几百 KB/s。
-- 多码并发提带宽（decimen 桌面→手机 4 码 418KB/s），自定义高密度彩码（参考 sz3/libcimbar）可更高。
-- 已知坑：光信道对帧率敏感，需按设备动态调码数。
+### DCF2 容器（49 字节小端头部 + 元数据 + 数据）
 
-##### 信道 C：鼠标光传感器（高隐蔽信令信道）
+```
+ 0  4B   magic "DCF2"
+ 4  u8   compression  0=none 1=gzip
+ 5  u16  nameLength
+ 7  u16  typeLength
+ 9  u32  fileLength        原始文件长度
+13  u32  transmittedLength 实际承载长度
+17  32B  sha256(原始文件)
+49  ...  name UTF-8 + type UTF-8 + transmitted bytes
+```
 
-- 独特卖点：**接收端零权限**。任何电脑天然有鼠标，不需要摄像头权限、不需要装驱动（鼠标是标准 HID 设备），适合 kiosk 机 / 工控机 / 只能插 USB 的隔离环境。
-- 原理：光学鼠标传感器（原相 ADNS 系列）本质是微型图像传感器，外部光源在其表面规律性闪烁时会被误判为"移动"，产生 Delta X/Y 上报，闪烁光即被解调为比特流（论文《Mice and Covert Channels》arXiv:1911.01349 已实测：鼠标对鼠标方案 Linux 下 0.5 bit/s、Windows 下 0.25 bit/s，含 ACK 握手）。
-- 速率低（HID 报告率 125Hz、OS 指针处理层层限速），只适合做信令信道。提速路径：拆鼠标直连传感器芯片（ADNS-2610/5050 支持 SPI 直读像素帧）可至数百 bps；调制光源用 850-950nm 红外更稳；Manchester 编码 + RS 纠错对抗 AGC。
-- 目前没有现成通用工具（论文均为安全研究 PoC），可作为差异化特性排后。
+## 通信原理
 
-三种信道对比：
+### 分层模型：信道 → 调制 → 编码
 
-| 信道 | 速率 | 隐蔽性 | 接收端要求 |
-| --- | --- | --- | --- |
-| 声波 | 几十 B/s | 低（有声音） | 麦克风 |
-| 屏幕→摄像头 | 400 KB/s | 低（需对准） | 摄像头权限 |
-| 鼠标光传感器 | 0.5 bit/s（HID）~数百 bit/s（直连） | **高**（无感知） | 仅需普通鼠标 |
+| 层次 | 光信道（屏幕 → 摄像头） | 声波信道（扬声器 → 麦克风） |
+|------|------|------|
+| 物理信道 | 可见光亮度场（屏幕逐帧刷新） | 空气声波：可听档约 1.9–10.8 kHz，超声档 15–23.9 kHz |
+| 调制方式 | 二维码（二维空间并行编码） | 多频 FSK（每符号 16 选 1 音调，6 音并行） |
+| 帧内纠错 | QR Reed-Solomon（纠错级 L） | RS(64, 24)，每段可纠 12 字节 |
+| 帧封装 | 22B 头 + 块（一个二维码 = 一帧） | 64B 声波段（14B 段头 + 50B 载荷），≤32 段拼回一帧 |
+| 帧级编码 | LT 喷泉码（两信道共用） | LT 喷泉码（两信道共用） |
 
-#### 安全
+**分工哲学**：帧内纠错（QR RS / 声波 RS）保证"收到的帧必然无误码"；喷泉码保证"任意凑够 k 帧即可还原"。信道只需多数帧送达、允许整帧丢失——这也是双通道并行互补的基础：二维码与声波各自收到的帧都进同一个 `LTDecoder`，一边被遮挡/受干扰时另一边自动补帧。
 
-decimen 明确指出"屏幕上的内容任何摄像头都能读"，所以：
+### 光信道：二维码调制 / 解调
 
-- 声波信令中的指纹（SHA-256）让用户两端显示/确认，防中间人；
-- 文件本体走 LAN 时用 TLS（自签证书 + 指纹比对）；
-- 光信道模式可加一层对称加密（密钥由声波信道先行交换）。
+- **调制**：喷泉码帧（22B 头 + 块）→ ZXing 生成二维码（字节模式，ISO-8859-1 保证字节与码字 1:1 映射）→ 屏幕以 10–30 fps 逐帧刷新
+- **解调**：CameraX 逐帧取景 → ML Kit `rawBytes` 直接还原原始字节（不经文本转换）→ `classifyFrame` 校验 magic/版本 → `LTDecoder.addFrame`
+- 二维码自带 Finder 图案定位与 RS 纠错；整帧解码失败即视为丢帧，由喷泉码吸收
 
-#### 技术选型
+### 声波信道：ggwave 多频 FSK 调制 / 解调
 
-| 模块 | 建议 |
-| --- | --- |
-| 跨平台桌面/移动 | Flutter（LocalSend 同款）或 Tauri |
-| 声波编解码 | 直接嵌入 ggwave（C++，有 WASM/绑定） |
-| 光编解码 | QR：zxing / node-qrcode；高密度码参考 sz3/libcimbar |
-| 喷泉码 | 自研 LT（不引入 openfec/libRaptorQ，零依赖、跨平台共用数学定义） |
-| 局域网发现 | UDP 广播 + mDNS |
-| 兜底方案 | WebRTC（公网可用 TURN） |
+**分段**：喷泉码帧（522–1487B）远超 ggwave 单次传输容量，故拆成 64B 声波段：
 
-#### 里程碑
+```
+ 0  u8   magic 'A' (0x41)
+ 1  u8   magic 'S' (0x53)
+ 2  u8   version = 1
+ 3  u8   flags       低 5 位 = 段总数-1（1..32）
+ 4  u16  sessionId   与喷泉码帧头一致
+ 6  u32  seq         喷泉码帧序号
+10  u16  frameLen    原始帧总长
+12  u8   segIndex
+13  u8   reserved
+14  50B  原始帧切片（末段不足补 0）
+```
 
-1. **MVP**：LocalSend 式 LAN 传输 + ggwave 声波握手（最难的是跨平台音频延迟和回声消除）
-2. **V2**：decimen 式光信道单向传输（无需同一 LAN）
-3. **V3**：喷泉码、多码并发、加密、跨网段 WebRTC 兜底、（可选）RaptorQ 升级、（可选）鼠标光传感器信道、多径并行收符号（WiFi + 声波 + 光三路同时收，谁先凑够谁赢）
+**调制（Tx）**：
 
-#### 实施建议
+1. 64B 段 → RS(64, 24) 加纠错得 88B 码字
+2. 码字按 3B/块分组（88B → 30 块）；每字节拆高低 4bit 得 6 个十六进制符号
+3. 第 j 槽位符号 d 发送频率 `f = 46.875·freqStart + 93.75·(16j + d)` Hz（48 kHz / 1024 点 FFT，bin 间隔 46.875 Hz；槽位间间隔 93.75 Hz，符号间无混叠）
+4. 6 路单音叠加合成 1024 样本一帧（21.3 ms），各音调相位按位序错开 πk/24 降低峰均比；同一块重复 6 帧（Fast 档），波形边缘 15% 余弦淡入淡出防爆音
+5. 档位：可听 `freqStart=40`（1875 Hz 起）、超声 `freqStart=320`（15 kHz 起）；固定帧长模式无起止标记音开销
 
-1. **先写语言无关的 LT 编解码规范文档**（块大小、PRNG 算法、robust soliton 参数全部定死，附测试向量）——这是整个 WaveSend 的地基，三个信道都要用到；
-2. **Python 原型**验证编解码正确性（与 decimen 的 TS 实现交叉测试：同 sessionId/seq 必须产出相同符号）；
-3. 再接声波或光信道做端到端。
+**解调（Rx）**：
+
+1. 麦克风流按 1024 样本滑窗 → Ooura 实数 FFT → 功率谱（4 帧历史叠加）
+2. 每槽位在其 16 个候选 bin 上取 argmax 还原符号，跨 6 帧多数投票（>3 帧一致才采纳）→ 3B/块 → 30 块拼齐 88B
+3. RS 解码纠错 → 校验通过得 64B 段 → 段头字段校验 → `Reassembler` 拼齐同一帧的全部段 → 还原原始喷泉码帧 → 复用二维码的 `onFrame` 入口
+4. 接收端只启用目标协议（可听或超声单档）参与检测，显著降低误检率
+
+**吞吐定位**：单段 64B 约 3.8 s（净载荷约 13 B/s），仅作兜底通道——主力吞吐由二维码承担，声波负责暗光、角度受限、摄像头无法对准屏幕时补帧；两台设备无需屏幕互相可见，隔墙也可经声波传完。
+
+## 构建
+
+### 前置条件
+
+- JDK 17（已内置在 `tools/jdk-17.0.2/`）
+- Gradle 8.13（已内置在 `tools/gradle-8.13/`）
+- Android SDK 34（通过 `local.properties` 指向）
+- Git Bash（运行构建脚本）
+
+### 一键构建（推荐）
+
+```bash
+./build-with-timestamp.sh
+```
+
+流程：robocopy 镜像到全英文暂存目录 `D:\afz_build` → 单元测试 → 签名 release APK → 桌面分发版 → APK 回拷项目根目录（带时间戳后缀）。
+
+### 手动构建
+
+```bash
+export JAVA_HOME="$PWD/tools/jdk-17.0.2"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+# Android APK（签名 release）
+./tools/gradle-8.13/bin/gradle.bat :app:assembleRelease --no-daemon
+
+# 桌面分发版（免安装目录）
+mkdir -p build/wix311   # 绕过 WiX 校验（打 MSI 才需要真正的 WiX）
+./tools/gradle-8.13/bin/gradle.bat :desktop:createDistributable -x downloadWix -x unzipWix --no-daemon
+
+# 单元测试
+./tools/gradle-8.13/bin/gradle.bat :app:testDebugUnitTest --no-daemon
+```
+
+> **注意**：项目路径含中文时 Gradle 测试进程的类路径会乱码导致 `ClassNotFoundException`，构建脚本通过 robocopy 到 `D:\afz_build` 规避此问题。
+
+### 打包单文件启动器
+
+```powershell
+# 1. 压缩桌面分发版
+Compress-Archive -Path "D:\afz_build\desktop\build\compose\binaries\main\app\AirFountainZulu\*" `
+    -DestinationPath "$env:TEMP\afz_payload.zip" -CompressionLevel Optimal
+
+# 2. 用 .NET 4 csc 编译（zip 嵌入为资源）
+& "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe `
+    /platform:anycpu /optimize+ `
+    /out:AirFountainZulu-launcher.exe `
+    /resource:"$env:TEMP\afz_payload.zip,payload.zip" `
+    /r:System.dll /r:System.Core.dll /r:System.IO.Compression.dll `
+    /r:System.IO.Compression.FileSystem.dll /r:System.Windows.Forms.dll `
+    launcher\Launcher.cs
+```
+
+## 使用
+
+### Android ↔ Android
+
+1. 发送端打开 App → 选择文件 → 点击「开始发送」
+2. 接收端打开 App → 切到「接收」→ 摄像头对准发送端屏幕
+3. 进度条走满后点击「保存」
+
+**开启声波双通道**：发送端在参数卡打开「声波发送（扬声器）」开关；接收端打开「声波接收（麦克风）」开关（首次弹出麦克风权限）。开启后二维码与声波同时收发，状态卡会显示声波信号检测情况。两档位均可选：可听声波（人耳可闻）或超声波（约 15 kHz，安静环境近距离使用）。
+
+### Windows 桌面版
+
+1. 双击 `AirFountainZulu-26.10.8.18-launcher.exe`（首次运行自动释出到 `%LOCALAPPDATA%\AirFountainZulu\`）
+2. 发送：选择文件 → 开始发送；接收：开始接收 → 摄像头对准屏幕
+3. 接收完成后点击「保存…」
+
+桌面端同样提供「声波发送/接收」开关（可听/超声两档），与 Android 端协议一致，可跨端互通。
+
+### 参数说明
+
+| 参数 | 选项 | 说明 |
+|------|------|------|
+| 帧大小 | 500B / 1000B / 1465B | 每帧二维码载荷字节数，越大吞吐越高但识别率下降 |
+| 帧率 | 10 / 15 / 24 / 30 fps | 播放速度，高帧率需要更好的摄像头 |
+| 声波档位 | 可听声波 / 超声波 | 可听档穿透性好；超声档人耳不可闻但易被阻挡、依赖扬声器高频响应 |
+
+## 限制
+
+- 单文件上限 **64 MB**（`Container.MAX_FILE_BYTES`）
+- 最大帧载荷 1465B（二维码字节模式 ECC-L 容量约 2953B，留有余量）
+- 声波通道仅支持 ≤1600B（含 22B 头）的帧，且吞吐仅约 13 B/s，定位为兜底通道
+- 超声档依赖扬声器/麦克风高频响应，多数笔记本麦克风 16 kHz 以上衰减严重，建议优先可听档
+- Windows 桌面版打包 MSI 安装包需要 WiX 工具链（本机网络受限时跳过，免安装版不受影响）
+- Android 需授权摄像头权限（扫码）与麦克风权限（声波接收）；桌面版需摄像头硬件
+
+## 参考项目
+
+- [decimen](https://github.com/spite-triangle/decimen) — 喷泉码线格式与 DCF2 容器协议来源
+- [ggwave](https://github.com/ggerganov/ggwave) — 声波数据调制/解调库（MIT），本项目纯 Kotlin 全量移植并保持线格式兼容
+- [AirScan-QR](https://github.com/HMBSbige/AirScan-QR) — 普通 QR 顺序分片参考
+- [airgapped-qr-code-transfer](https://github.com/Ruk33/airgapped-qr-code-transfer) — 气隙传输参考
