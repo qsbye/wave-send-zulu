@@ -1,0 +1,13 @@
+AirFountainZulu transfers files between devices without Wi-Fi, Bluetooth, USB, or any network — it uses the screen as a sender and the camera as a receiver, displaying a stream of QR codes that the receiving device scans and reassembles. An optional audio channel (speaker + microphone) runs in parallel to fill in dropped frames.
+
+Features:
+
+• Fountain-code (LT code) transmission: any frame order, any frame loss, join or leave at any time
+• Self-describing frames: every frame carries a full 22-byte header, no handshake required
+• DCF2 container: preserves file name and MIME type, optional gzip compression, SHA-256 integrity check
+• Dual-channel resilience: QR and audio frames feed the same decoder; one channel covers for the other
+• Audio channel: pure-Kotlin port of ggwave (MIT), frames split into 64-byte audio segments
+• Affine-following QR lock box: a blue dashed quadrilateral tracks the detected QR code through rotation and perspective
+• Auto-save received files to Download/AirFountainZulu/
+
+Source code and issue tracker: https://github.com/qsbye/wave-send-zulu

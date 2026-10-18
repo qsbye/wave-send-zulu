@@ -1,0 +1,1 @@
+Replace proprietary ML Kit QR scanner with ZXing (Apache-2.0) for F-Droid compliance; add MIT license; fastlane metadata for F-Droid.

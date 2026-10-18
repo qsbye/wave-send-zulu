@@ -1,0 +1,35 @@
+# F-Droid 构建元数据模板 — 提交到 fdroiddata 仓库的 metadata/com.airscan.qr.yml
+# 提交前请将 commit 替换为已打 tag 的实际提交哈希，并确认 subdir/gradle 构建通过。
+# 验证命令：fdroid lint com.airscan.qr && fdroid readmeta && fdroid build com.airscan.qr
+
+Categories:
+  - Connectivity
+  - System
+License: MIT
+SourceCode: https://github.com/qsbye/wave-send-zulu
+IssueTracker: https://github.com/qsbye/wave-send-zulu/issues
+
+AutoName: AirFountainZulu
+
+RepoType: git
+Repo: https://github.com/qsbye/wave-send-zulu
+
+Builds:
+  - versionName: 26.10.8.18
+    versionCode: 26
+    # TODO: 替换为已打 tag 的提交哈希
+    commit: REPLACE_WITH_TAGGED_COMMIT
+    # 仓库根目录包含 settings.gradle（include :app/:desktop/:web），
+    # 仅构建 :app 模块；prebuild 中移除桌面/Web 模块避免其工具链配置干扰。
+    subdir: app
+    gradle:
+      - yes
+    prebuild:
+      - sed -i -e '/include .:desktop./d' -e '/include .:web./d' ../settings.gradle
+    # F-Droid 构建环境无本地签名密钥库，app/build.gradle 已做存在性判断，
+    # release 产物为未签名 APK，由 F-Droid 统一签名。
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 26.10.8.18
+CurrentVersionCode: 26

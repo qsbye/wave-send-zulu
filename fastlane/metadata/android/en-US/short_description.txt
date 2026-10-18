@@ -1,0 +1,1 @@
+Transfer files across air-gapped devices via screen-camera QR streams and audio
