@@ -358,6 +358,7 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 17. **aapt2 daemon 启动死锁**：本地 Gradle 构建偶尔出现多个 WorkerExecutor 线程卡在 `Aapt2DaemonImpl.startProcess`（0 CPU、无产出）。处理：杀 gradlew + aapt2 进程，`gradle --stop`，清理 `~/.gradle/caches/**/*.lock`，用 `--no-daemon` 重跑
 18. **评论/改 MR 前必读全部互动**：每次要发新评论或修改 MR 前，必须先拉取该 MR 的所有 notes 通读（API 见流程 (e) 部分），确认维护者最新要求和已讨论过的点。**禁止不看上下文就发评论**——例如维护者刚要求加 `Binaries`/`AllowedAPKSigningKeys`，你却还在重复请求触发 CI，会显得没在跟进讨论。新评论应直接回应维护者最新一条评论的具体要求
 19. **维护者要求 Squash commits 时压缩为单提交**：F-Droid 偏好每个 App MR 只有一个提交。收到 "Please enable Squash commits" 时，两步都做：① 本地把分支压缩成单提交（`git reset --hard origin/master` 后重新 `git add` + `git commit`，再 `--force` 推到 fork 分支）；② 通过 API 启用 MR 设置 `PUT /projects/36528/merge_requests/<iid>` body `{"squash": true, "squash_on_merge": true}`。验证：MR commits 接口只剩 1 条
+20. **`fdroid rewritemeta` 格式规范必须匹配**：CI 的 `fdroid rewritemeta` job 会检查 metadata 格式，不匹配则失败。本地必须运行 `fdroid rewritemeta <appId>` 并确认无 diff。关键格式规则（来自 ruamel.yaml 自动排序/折行）：① Categories 用 `config/categories.yml` 中的精确名称（如 `File Transfer` 带空格，不是 `FileTransfer`），且按字母序排列；② 超长字段（`Binaries` URL 等）自动折行到下一行（缩进 2 空格）；③ `AllowedAPKSigningKeys` 放在 `Builds` 块之后、`AutoUpdateMode` 之前（不是 `CurrentVersionCode` 之后）。验证方法：在 fdroiddata 目录中运行 `fdroid rewritemeta`，若文件无变化则通过
 
 ## 进阶：可复现构建（Reproducible Builds）
 
