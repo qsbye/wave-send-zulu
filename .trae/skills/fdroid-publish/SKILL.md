@@ -206,6 +206,18 @@ curl -s --request POST --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
 
 维护者触发 CI 后，第一时间在评论逐条解释 Reports tab 中的 info notes（即使无 warning/error）——权限用途（如 CAMERA/RECORD_AUDIO）、AndroidX 自动注入的权限、ABI/native 库大小与不做 abi split 的理由、R8/minify 标记等。52314 作者用一条结构化评论解释 6 条 info notes 后 MR 即进入 review-requested 队列。
 
+### 失败案例（已关闭 MR 的常见死因，2026-10 抽样）
+
+提交前对照自查。被关闭不等于终结——多数死因修复后可重新打开或重开 MR 并引用旧编号。
+
+| 死因 | 案例 | 预防 |
+| --- | --- | --- |
+| **MR 描述未使用官方 App inclusion 模板** | !52810 XMR Rates：自定义格式描述，关闭留言 "there is no app inclusion template, please edit and include it then re-open MR"；!53108（本项目）同样因 "Merge Request template is not followed" 被关 | 描述必须照搬官方模板结构（Abstract 两问 + Checklist 五节）。**把模板放在评论里不算数，必须在 MR 描述正文**；自定义结构再完整也会被关 |
+| **fdroiddata fork 不是 public** | !52985 Ash Launcher：一句话关闭 "Your fdroiddata repo is not public" | 建 fork 后立刻检查仓库可见性为 Public；MR 源分支不要设 protected |
+| **应用成熟度/品类不适合** | !52481 Lichen：模板填写完美、CI 身份验证话术正确，仍被拒——"太不成熟、没有用户、F-Droid 已有太多同类 messager" | 同质化品类（聊天/笔记/启动器）有隐性门槛；小众工具+清晰差异化动机通过率更高。此类拒绝不可逆，不必纠缠 |
+
+教训：**模板是入场券不是保险单，但不用模板是 24 小时内必关的速死原因**（52810 存活 1 天，53108 存活约 4 小时即被关闭）。被关后按关闭留言修复描述，重新打开 MR。
+
 ### 4. 本地 lint 验证 metadata（提交前必须）
 
 ```bash
@@ -222,6 +234,23 @@ cd /tmp/fdroidlint && /tmp/fdroid_env/bin/fdroid lint com.airscan.qr
 > 类别 `Connectivity`/`System` 报 "not valid" 是误报（本地未加载 fdroiddata categories 配置），实际是有效类别。
 
 ## 关键坑（实测）
+
+### 扫描器（fdroid scanner + SUSS 签名库）
+
+CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Suspicious or Unwanted Software Signatures，AGPL）签名库扫描源码与产物：
+
+- `code_signatures`：匹配 APK 内的 smali 类路径（如 `com/google/firebase`），命中即 **error，pipeline 失败**
+- `gradle_signatures`：匹配构建文件中的依赖坐标（如 `com.example:ads`）
+- `warn_*_signatures`：同类匹配但只警告
+- 每个签名条目带 `license` 字段（FOSS 用 SPDX 标识，专有用 `NonFree`）
+
+应对：
+
+1. **提交前本地预跑** `fdroid scanner <appId>`（与 lint 同一套 fdroidserver 环境），或直接对照 suss 签名库 grep 自己的 `build.gradle` 依赖坐标
+2. 缓存/测试数据目录用 `scandelete` 排除（参考 Launch-R 排除 `.pub-cache`、Palimpsest 排除 `test-vectors`），防止 scanner 对下载缓存里的 jar 告警
+3. 本项目历史上 ML Kit → ZXing 的替换正是为了躲开 scanner 对 `com/google/mlkit` 的 code_signatures 命中——**专有依赖必须在提交前换完，不要指望 scanner 误报**
+
+
 
 1. **F-Droid 强制 FOSS 依赖**：本项目已用 ZXing（Apache-2.0）替换 Google ML Kit，并移除 `kotlinx-coroutines-play-services`；新增依赖前必须确认许可证（禁止 Firebase、GMS、Play Services、任何专有库）
 2. **release 签名配置已做存在性判断**：`app/build.gradle` 中 `signingConfigs.release` 仅在 `../airscan-release.keystore` 存在时启用，F-Droid 环境产出未签名 APK 由 F-Droid 统一签名——**不要把 keystore 提交到仓库**
