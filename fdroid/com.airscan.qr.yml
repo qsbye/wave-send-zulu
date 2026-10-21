@@ -15,9 +15,9 @@ Binaries:
   https://github.com/qsbye/wave-send-zulu/releases/download/%v/AirFountainZulu-release-%v.apk
 
 Builds:
-  - versionName: 26.10.18.18
-    versionCode: 28
-    commit: 7bb10e6307fa1cf7c1b67bae49288e165bdd8280
+  - versionName: 26.10.21.2205
+    versionCode: 29
+    commit: 532de6b68cff5d75288a1656cd02e4f8a004cc10
     subdir: app
     gradle:
       - yes
@@ -30,5 +30,5 @@ AllowedAPKSigningKeys: 2fb54f5c4d01393ba9cdbe529a8df7d83b686056ed7b3aba63daba04c
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^[0-9.]+$
-CurrentVersion: 26.10.18.18
-CurrentVersionCode: 28
+CurrentVersion: 26.10.21.2205
+CurrentVersionCode: 29
