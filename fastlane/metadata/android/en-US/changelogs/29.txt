@@ -1,0 +1,1 @@
+Enable R8 code and resource shrinking. Add English UI with automatic language selection by time zone (UTC+7 to UTC+10 use Chinese). Add a new macaron fountain-code launcher icon and a bilingual README.
