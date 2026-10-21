@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <group
+        android:pivotX="256"
+        android:pivotY="256"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
+
+        <!-- 喷泉水弧 -->
+        <path
+            android:pathData="M232,238 C206,198 198,156 202,112"
+            android:strokeColor="#9BD3F2"
+            android:strokeWidth="14"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M280,238 C306,198 314,156 310,112"
+            android:strokeColor="#9BD3F2"
+            android:strokeWidth="14"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M256,236 L256,150"
+            android:strokeColor="#BDE4FA"
+            android:strokeWidth="12"
+            android:strokeLineCap="round" />
+
+        <!-- 顶部数据块（二维码模块） -->
+        <path
+            android:fillColor="#FFB7C5"
+            android:pathData="M203,84 H219 A11,11 0 0 1 230,95 V111 A11,11 0 0 1 219,122 H203 A11,11 0 0 1 192,111 V95 A11,11 0 0 1 203,84 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.9"
+            android:pathData="M208,96 H214 A4,4 0 0 1 218,100 V106 A4,4 0 0 1 214,110 H208 A4,4 0 0 1 204,106 V100 A4,4 0 0 1 208,96 Z" />
+        <path
+            android:fillColor="#CDB4DB"
+            android:pathData="M259,66 H275 A11,11 0 0 1 286,77 V93 A11,11 0 0 1 275,104 H259 A11,11 0 0 1 248,93 V77 A11,11 0 0 1 259,66 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.9"
+            android:pathData="M264,78 H270 A4,4 0 0 1 274,82 V88 A4,4 0 0 1 270,92 H264 A4,4 0 0 1 260,88 V82 A4,4 0 0 1 264,78 Z" />
+        <path
+            android:fillColor="#FFE08A"
+            android:pathData="M315,84 H331 A11,11 0 0 1 342,95 V111 A11,11 0 0 1 331,122 H315 A11,11 0 0 1 304,111 V95 A11,11 0 0 1 315,84 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.9"
+            android:pathData="M320,96 H326 A4,4 0 0 1 330,100 V106 A4,4 0 0 1 326,110 H320 A4,4 0 0 1 316,106 V100 A4,4 0 0 1 320,96 Z" />
+
+        <!-- 水滴 -->
+        <path
+            android:fillColor="#FFD3B6"
+            android:pathData="M163,168 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0" />
+        <path
+            android:fillColor="#FFB7C5"
+            android:pathData="M323,168 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0" />
+        <path
+            android:fillColor="#CDB4DB"
+            android:pathData="M217,188 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+        <path
+            android:fillColor="#FFE08A"
+            android:pathData="M277,188 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+        <path
+            android:fillColor="#9BD3F2"
+            android:pathData="M249,206 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+
+        <!-- 中央立柱 -->
+        <path
+            android:fillColor="#86C5EA"
+            android:pathData="M256,252 A12,12 0 0 1 268,264 V358 A12,12 0 0 1 256,370 A12,12 0 0 1 244,358 V264 A12,12 0 0 1 256,252 Z" />
+        <path
+            android:fillColor="#CBE8FB"
+            android:fillAlpha="0.9"
+            android:pathData="M253,260 A3,3 0 0 1 256,263 V357 A3,3 0 0 1 253,360 A3,3 0 0 1 250,357 V263 A3,3 0 0 1 253,260 Z" />
+
+        <!-- 顶部水盘 -->
+        <path
+            android:fillColor="#A9D6F5"
+            android:pathData="M168,246 a88,22 0 1,0 176,0 a88,22 0 1,0 -176,0" />
+        <path
+            android:pathData="M168,246 a88,22 0 1,0 176,0 a88,22 0 1,0 -176,0"
+            android:strokeColor="#86C5EA"
+            android:strokeWidth="6" />
+
+        <!-- 底部水池 -->
+        <path
+            android:fillColor="#8FE0C6"
+            android:pathData="M129,366 H383 A41,41 0 0 1 424,407 A41,41 0 0 1 383,448 H129 A41,41 0 0 1 88,407 A41,41 0 0 1 129,366 Z" />
+        <path
+            android:fillColor="#D6F7EC"
+            android:fillAlpha="0.85"
+            android:pathData="M96,372 a160,14 0 1,0 320,0 a160,14 0 1,0 -320,0" />
+
+        <!-- 水池上的三个二维码定位块 -->
+        <path
+            android:fillColor="#5FC9AC"
+            android:pathData="M131,389 H149 A9,9 0 0 1 158,398 V416 A9,9 0 0 1 149,425 H131 A9,9 0 0 1 122,416 V398 A9,9 0 0 1 131,389 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M135,397 H145 A5,5 0 0 1 150,402 V412 A5,5 0 0 1 145,417 H135 A5,5 0 0 1 130,412 V402 A5,5 0 0 1 135,397 Z" />
+        <path
+            android:fillColor="#5FC9AC"
+            android:pathData="M138,403 H142 A2,2 0 0 1 144,405 V409 A2,2 0 0 1 142,411 H138 A2,2 0 0 1 136,409 V405 A2,2 0 0 1 138,403 Z" />
+
+        <path
+            android:fillColor="#5FC9AC"
+            android:pathData="M247,389 H265 A9,9 0 0 1 274,398 V416 A9,9 0 0 1 265,425 H247 A9,9 0 0 1 238,416 V398 A9,9 0 0 1 247,389 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M251,397 H261 A5,5 0 0 1 266,402 V412 A5,5 0 0 1 261,417 H251 A5,5 0 0 1 246,412 V402 A5,5 0 0 1 251,397 Z" />
+        <path
+            android:fillColor="#5FC9AC"
+            android:pathData="M254,403 H258 A2,2 0 0 1 260,405 V409 A2,2 0 0 1 258,411 H254 A2,2 0 0 1 252,409 V405 A2,2 0 0 1 254,403 Z" />
+
+        <path
+            android:fillColor="#5FC9AC"
+            android:pathData="M363,389 H381 A9,9 0 0 1 390,398 V416 A9,9 0 0 1 381,425 H363 A9,9 0 0 1 354,416 V398 A9,9 0 0 1 363,389 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M367,397 H377 A5,5 0 0 1 382,402 V412 A5,5 0 0 1 377,417 H367 A5,5 0 0 1 362,412 V402 A5,5 0 0 1 367,397 Z" />
+        <path
+            android:fillColor="#5FC9AC"
+            android:pathData="M370,403 H374 A2,2 0 0 1 376,405 V409 A2,2 0 0 1 374,411 H370 A2,2 0 0 1 368,409 V405 A2,2 0 0 1 370,403 Z" />
+    </group>
+</vector>
