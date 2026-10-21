@@ -1,6 +1,7 @@
 package com.airscan.qr
 
 import android.app.Activity
+import android.content.Context
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.airscan.qr.ui.AirScanTheme
@@ -32,12 +34,17 @@ import com.airscan.qr.ui.ReceiverScreen
 import com.airscan.qr.ui.SenderScreen
 import com.airscan.qr.ui.SenderViewModel
 
-private enum class Tab(val label: String) {
-    Sender("发送"),
-    Receiver("接收"),
+private enum class Tab(val labelRes: Int) {
+    Sender(R.string.tab_send),
+    Receiver(R.string.tab_receive),
 }
 
 class MainActivity : ComponentActivity() {
+
+    // 按手机时区切换中英文资源（UTC+7..10 中文，其余英文）
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.localized(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,13 +84,13 @@ private fun AppRoot() {
                     selected = tab == Tab.Sender,
                     onClick = { tab = Tab.Sender },
                     icon = { Icon(Icons.Filled.QrCode2, contentDescription = null) },
-                    label = { Text(Tab.Sender.label) },
+                    label = { Text(stringResource(Tab.Sender.labelRes)) },
                 )
                 NavigationBarItem(
                     selected = tab == Tab.Receiver,
                     onClick = { tab = Tab.Receiver },
                     icon = { Icon(Icons.Filled.QrCodeScanner, contentDescription = null) },
-                    label = { Text(Tab.Receiver.label) },
+                    label = { Text(stringResource(Tab.Receiver.labelRes)) },
                 )
             }
         },

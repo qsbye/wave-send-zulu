@@ -1,10 +1,12 @@
 package com.airscan.qr.audio
 
 import android.Manifest
+import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
+import com.airscan.qr.R
 import com.airscan.qr.core.audio.AudioSegment
 import com.airscan.qr.core.ggwave.GGWave
 import kotlin.math.abs
@@ -13,7 +15,7 @@ import kotlin.math.abs
  * 麦克风接收器：录音 -> ggwave 解调 -> 段重组 -> 产出喷泉码帧。
  *
  * 用法：
- *   val rx = AudioReceiver(onFrame = { frame -> ... })
+ *   val rx = AudioReceiver(context, onFrame = { frame -> ... })
  *   rx.start()
  *   rx.stop()
  *
@@ -26,6 +28,7 @@ import kotlin.math.abs
  *  - snapshotLevels()：最近麦克风电平（0..1）历史，供波形显示
  */
 class AudioReceiver(
+    private val context: Context,
     private val ultraSound: Boolean = false,
     private val onFrame: (ByteArray) -> Unit,
 ) {
@@ -117,7 +120,7 @@ class AudioReceiver(
         if (ar.state != AudioRecord.STATE_INITIALIZED) {
             ar.release()
             running = false
-            error = "麦克风初始化失败（可能被其他应用占用或不支持 48kHz）"
+            error = context.getString(R.string.audio_mic_init_failed)
             return
         }
         record = ar
@@ -130,7 +133,7 @@ class AudioReceiver(
                 val n = ar.read(buf, 0, buf.size)
                 if (n <= 0) {
                     if (n < 0 && ++readFailures >= 10) {
-                        error = "录音读取失败（错误码 $n）"
+                        error = context.getString(R.string.audio_read_failed, n)
                     }
                     continue
                 }

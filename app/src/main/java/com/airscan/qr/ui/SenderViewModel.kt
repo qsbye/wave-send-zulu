@@ -1,11 +1,14 @@
 package com.airscan.qr.ui
 
 import android.app.Application
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.airscan.qr.AppLocale
+import com.airscan.qr.R
 import com.airscan.qr.core.Container
 import com.airscan.qr.core.FrameHeader
 import com.airscan.qr.core.LTEncoder
@@ -59,6 +62,9 @@ fun audioSupported(frameBytes: Int): Boolean = AudioSegment.supportsFrame(frameB
 
 class SenderViewModel(app: Application) : AndroidViewModel(app) {
 
+    // 按手机时区解析的中英文资源（Application 资源仍跟随系统语言）
+    private val ui: Context = AppLocale.localized(app)
+
     private val _state = MutableStateFlow(SenderUiState())
     val state: StateFlow<SenderUiState> = _state.asStateFlow()
 
@@ -74,7 +80,7 @@ class SenderViewModel(app: Application) : AndroidViewModel(app) {
     fun setAudioEnabled(enabled: Boolean) {
         if (_state.value.sending) return
         if (enabled && !audioSupported(_state.value.frameBytes)) {
-            _state.update { it.copy(error = "当前帧尺寸过大，声波仅支持 ≤1600B（含头）帧") }
+            _state.update { it.copy(error = ui.getString(R.string.error_audio_frame_too_large)) }
             return
         }
         _state.update { it.copy(audioEnabled = enabled) }
@@ -94,17 +100,17 @@ class SenderViewModel(app: Application) : AndroidViewModel(app) {
                 val app = getApplication<Application>()
                 val (name, mime) = queryNameAndType(uri)
                 val bytes = app.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    ?: error("无法读取所选文件")
+                    ?: error(ui.getString(R.string.error_open_file_failed))
 
                 if (bytes.isEmpty()) {
-                    _state.update { it.copy(busy = false, error = "文件为空") }
+                    _state.update { it.copy(busy = false, error = ui.getString(R.string.error_empty_file)) }
                     return@launch
                 }
                 if (bytes.size.toLong() > Container.MAX_FILE_BYTES) {
                     _state.update {
                         it.copy(
                             busy = false,
-                            error = "文件超过 ${Container.MAX_FILE_LABEL} 上限",
+                            error = ui.getString(R.string.error_file_too_large, Container.MAX_FILE_LABEL),
                         )
                     }
                     return@launch
@@ -134,7 +140,9 @@ class SenderViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 refreshBlockStats()
             } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = "读取/打包失败：${e.message}") }
+                _state.update {
+                    it.copy(busy = false, error = ui.getString(R.string.error_read_pack_failed, e.message))
+                }
             }
         }
     }
@@ -152,13 +160,13 @@ class SenderViewModel(app: Application) : AndroidViewModel(app) {
     fun start() {
         if (_state.value.sending) return
         val data = container ?: run {
-            _state.update { it.copy(error = "请先选择文件") }
+            _state.update { it.copy(error = ui.getString(R.string.error_select_file_first)) }
             return
         }
         val blockLen = _state.value.frameBytes - Wire.HEADER_LEN
         val k = (data.size + blockLen - 1) / blockLen
         if (k > 0xFFFF) {
-            _state.update { it.copy(error = "块数超过 65535，请改用更大帧尺寸") }
+            _state.update { it.copy(error = ui.getString(R.string.error_too_many_blocks)) }
             return
         }
 
@@ -248,7 +256,7 @@ class SenderViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(
                 blockLen = blockLen,
                 k = k,
-                error = if (k > 0xFFFF) "块数超过 65535，请改用更大帧尺寸" else it.error,
+                error = if (k > 0xFFFF) ui.getString(R.string.error_too_many_blocks) else it.error,
             )
         }
     }

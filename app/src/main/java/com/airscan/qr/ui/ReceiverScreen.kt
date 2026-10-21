@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.airscan.qr.R
 import com.airscan.qr.camera.CameraPreview
 import com.airscan.qr.util.Fmt
 
@@ -111,11 +113,11 @@ fun ReceiverScreen(vm: ReceiverViewModel = viewModel()) {
                     ) {
                         Icon(Icons.Filled.Cameraswitch, contentDescription = null)
                         Text(
-                            "需要摄像头权限以扫描发送端屏幕上的二维码",
+                            stringResource(R.string.receiver_camera_permission),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Button(onClick = { permLauncher.launch(Manifest.permission.CAMERA) }) {
-                            Text("授予摄像头权限")
+                            Text(stringResource(R.string.receiver_grant_camera))
                         }
                     }
                 }
@@ -173,13 +175,15 @@ private fun CameraToggleCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "摄像头接收",
+                    stringResource(R.string.receiver_camera_title),
                     color = Color.White,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = if (enabled) "扫码 + 声波双通道并行" else "已关闭：纯声波接收，更省电",
+                    text = stringResource(
+                        if (enabled) R.string.receiver_camera_on else R.string.receiver_camera_off
+                    ),
                     color = Color(0xFFB9C2CC),
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -205,18 +209,18 @@ private fun AudioReceiverCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "声波接收（麦克风）",
+                        stringResource(R.string.receiver_audio_title),
                         color = Color.White,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
                         text = when {
-                            !state.audioEnabled -> "与摄像头同时接收，双通道互补"
+                            !state.audioEnabled -> stringResource(R.string.receiver_audio_off)
                             state.audioReceiving && state.audioLockEta > 0 ->
-                                "正在接收声波信号…预计 ${state.audioLockEta}s 后锁定（需收齐一帧全部段，每段约 3.8s）"
-                            state.audioReceiving -> "正在接收声波信号…"
-                            else -> "监听中，未检测到声波信号"
+                                stringResource(R.string.receiver_audio_locking, state.audioLockEta)
+                            state.audioReceiving -> stringResource(R.string.receiver_audio_receiving)
+                            else -> stringResource(R.string.receiver_audio_listening)
                         },
                         color = Color(0xFFB9C2CC),
                         style = MaterialTheme.typography.bodySmall,
@@ -229,12 +233,12 @@ private fun AudioReceiverCard(
                     FilterChip(
                         selected = !state.audioUltraSound,
                         onClick = { onModeChange(false) },
-                        label = { Text("可听声波") },
+                        label = { Text(stringResource(R.string.audio_audible)) },
                     )
                     FilterChip(
                         selected = state.audioUltraSound,
                         onClick = { onModeChange(true) },
-                        label = { Text("超声波") },
+                        label = { Text(stringResource(R.string.audio_ultrasound)) },
                     )
                 }
                 state.audioError?.let {
@@ -245,23 +249,28 @@ private fun AudioReceiverCard(
                 if (state.locked) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            "进度 ${(state.progress * 100).toInt()}%",
+                            stringResource(R.string.receiver_progress, (state.progress * 100).toInt()),
                             color = Color(0xFF4CD97B),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Text("新帧 ${state.uniqueFrames}", color = Color(0xFFB9C2CC), style = MaterialTheme.typography.bodySmall)
-                        Text("重复 ${state.dupFrames}", color = Color(0xFF8A93A0), style = MaterialTheme.typography.bodySmall)
-                        Text("冗余 ${state.redundantFrames}", color = Color(0xFF8A93A0), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.receiver_stat_new, state.uniqueFrames), color = Color(0xFFB9C2CC), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.receiver_stat_dup, state.dupFrames), color = Color(0xFF8A93A0), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.receiver_stat_redundant, state.redundantFrames), color = Color(0xFF8A93A0), style = MaterialTheme.typography.bodySmall)
                     }
                     Text(
-                        "会话 0x${(state.sessionId and 0xFFFF).toString(16).uppercase()}" +
-                            " · 块 ${state.k} × ${state.blockLen}B · 共 ${fmtBytes(state.totalLen)}",
+                        stringResource(
+                            R.string.receiver_session_summary,
+                            (state.sessionId and 0xFFFF).toString(16).uppercase(),
+                            state.k,
+                            state.blockLen,
+                            fmtBytes(state.totalLen),
+                        ),
                         color = Color(0xFF8A93A0),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 } else {
-                    Text("等待锁定数据流…", color = Color(0xFF5A6470), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.receiver_audio_wait_lock), color = Color(0xFF5A6470), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -278,7 +287,9 @@ private fun ReceiveStatusCard(state: ReceiverUiState) {
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                if (state.locked) "已锁定喷泉码数据流" else "将摄像头对准发送端屏幕",
+                stringResource(
+                    if (state.locked) R.string.receiver_locked else R.string.receiver_aim_camera
+                ),
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -290,26 +301,31 @@ private fun ReceiveStatusCard(state: ReceiverUiState) {
                 )
                 if (state.etaSeconds > 0 && state.completed == null) {
                     Text(
-                        "预计剩余约 ${state.etaSeconds} 秒",
+                        stringResource(R.string.receiver_eta, state.etaSeconds),
                         color = Color(0xFF4CD97B),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
                 Text(
-                    text = buildString {
-                        append("会话 #%04X".format(state.sessionId))
-                        append("　块数 ${state.k}")
-                        append("　帧载荷 ${state.blockLen}B")
-                        append("　文件 ${Fmt.bytes(state.totalLen)}")
-                    },
+                    text = stringResource(
+                        R.string.receiver_session_detail,
+                        state.sessionId,
+                        state.k,
+                        state.blockLen,
+                        Fmt.bytes(state.totalLen),
+                    ),
                     color = Color(0xFFB9C2CC),
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
                 )
                 Text(
-                    text = "新帧 ${state.uniqueFrames}　重复 ${state.dupFrames}" +
-                        "　冗余 ${state.redundantFrames}",
+                    text = stringResource(
+                        R.string.receiver_frame_stats,
+                        state.uniqueFrames,
+                        state.dupFrames,
+                        state.redundantFrames,
+                    ),
                     color = Color(0xFFB9C2CC),
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
@@ -346,21 +362,30 @@ private fun CompletedCard(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "接收完成并通过完整性校验",
+                    stringResource(R.string.receiver_complete),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            Text("文件名：${done.name}", style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                "大小：${Fmt.bytes(done.size)}（光学承载 ${Fmt.bytes(done.transmittedSize)}" +
-                    if (done.compression == "gzip") "，gzip 解压）" else "）",
+                stringResource(R.string.receiver_file_name, done.name),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                stringResource(
+                    if (done.compression == "gzip") R.string.receiver_file_size_gzip
+                    else R.string.receiver_file_size,
+                    Fmt.bytes(done.size),
+                    Fmt.bytes(done.transmittedSize),
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             done.savedPath?.let {
                 Text(
-                    "已自动保存：$it",
+                    stringResource(R.string.receiver_auto_saved, it),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF4CD97B),
                     maxLines = 2,
@@ -368,7 +393,7 @@ private fun CompletedCard(
                 )
             }
             Text(
-                text = "SHA-256：\n" + done.sha256Hex.chunked(16).joinToString(" "),
+                text = stringResource(R.string.receiver_sha) + done.sha256Hex.chunked(16).joinToString(" "),
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -377,10 +402,14 @@ private fun CompletedCard(
                 Button(onClick = onSave, enabled = !saving) {
                     Icon(Icons.Filled.SaveAlt, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (saving) "保存中…" else "另存为…")
+                    Text(
+                        stringResource(
+                            if (saving) R.string.receiver_saving else R.string.receiver_save_as
+                        )
+                    )
                 }
                 OutlinedButton(onClick = onReset) {
-                    Text("继续接收")
+                    Text(stringResource(R.string.receiver_continue))
                 }
             }
         }

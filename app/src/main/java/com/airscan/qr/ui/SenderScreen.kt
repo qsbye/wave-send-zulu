@@ -41,11 +41,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.airscan.qr.R
 import com.airscan.qr.util.Fmt
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -73,7 +75,7 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
                     Icon(Icons.Filled.FilePresent, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = state.fileName ?: "未选择文件",
+                        text = state.fileName ?: stringResource(R.string.sender_no_file),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f),
@@ -81,22 +83,28 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
                 }
                 if (state.fileName != null) {
                     Text(
-                        text = buildString {
-                            append("原始大小：${Fmt.bytes(state.fileSize)}")
-                            append("    承载大小：${Fmt.bytes(state.packedSize)}")
-                            if (state.compression == "gzip") append("    （gzip）")
-                        },
+                        text = stringResource(
+                            if (state.compression == "gzip") R.string.sender_file_sizes_gzip
+                            else R.string.sender_file_sizes,
+                            Fmt.bytes(state.fileSize),
+                            Fmt.bytes(state.packedSize),
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "分块：${state.k} 块 × ${state.blockLen} B",
+                        text = stringResource(R.string.sender_block_stats, state.k, state.blockLen),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 OutlinedButton(onClick = { pickFile.launch(arrayOf("*/*")) }) {
-                    Text(if (state.fileName == null) "选择文件" else "更换文件")
+                    Text(
+                        stringResource(
+                            if (state.fileName == null) R.string.sender_choose_file
+                            else R.string.sender_change_file
+                        )
+                    )
                 }
             }
         }
@@ -104,7 +112,7 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
         // 参数卡
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("帧大小（含 22B 帧头）", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.sender_frame_size_label), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FRAME_BYTES_OPTIONS.forEach { fb ->
                         FilterChip(
@@ -115,7 +123,7 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
                         )
                     }
                 }
-                Text("播放帧率", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.sender_fps_label), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FPS_OPTIONS.forEach { fps ->
                         FilterChip(
@@ -134,10 +142,12 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("声波发送（扬声器）", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.sender_audio_title), style = MaterialTheme.typography.labelLarge)
                         Text(
-                            text = if (audioOk) "与二维码同时发送，双通道互补"
-                            else "当前帧尺寸超过 1600B，不支持声波",
+                            text = stringResource(
+                                if (audioOk) R.string.sender_audio_desc
+                                else R.string.sender_audio_unsupported
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -154,13 +164,13 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
                             selected = !state.audioUltraSound,
                             enabled = !state.sending,
                             onClick = { vm.setAudioUltraSound(false) },
-                            label = { Text("可听声波") },
+                            label = { Text(stringResource(R.string.audio_audible)) },
                         )
                         FilterChip(
                             selected = state.audioUltraSound,
                             enabled = !state.sending,
                             onClick = { vm.setAudioUltraSound(true) },
-                            label = { Text("超声波") },
+                            label = { Text(stringResource(R.string.audio_ultrasound)) },
                         )
                     }
                     AudioWave(levels = state.audioLevels, active = state.sending)
@@ -189,12 +199,12 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
                 if (bmp != null && state.sending) {
                     Image(
                         bitmap = bmp.asImageBitmap(),
-                        contentDescription = "发送中的二维码",
+                        contentDescription = stringResource(R.string.sender_qr_content_desc),
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
                     Text(
-                        text = "选择文件并开始后\n此处高速播放喷泉码二维码",
+                        text = stringResource(R.string.sender_qr_placeholder),
                         color = Color(0xFF6B7280),
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -207,14 +217,15 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state.sending) {
                     Text(
-                        text = "会话 #%04X · 帧 %d · 周期 %d 帧".format(
+                        text = stringResource(
+                            R.string.sender_session_line,
                             state.sessionId, state.seq, state.k * 2,
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         fontFamily = FontFamily.Monospace,
                     )
                     Text(
-                        text = "接收端随时可对准屏幕，漏拍/晚加入都无需重发。",
+                        text = stringResource(R.string.sender_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -240,9 +251,9 @@ fun SenderScreen(vm: SenderViewModel = viewModel()) {
                     Spacer(Modifier.width(8.dp))
                     Text(
                         when {
-                            state.busy -> "处理中…"
-                            state.sending -> "停止发送"
-                            else -> "开始发送"
+                            state.busy -> stringResource(R.string.sender_processing)
+                            state.sending -> stringResource(R.string.sender_stop)
+                            else -> stringResource(R.string.sender_start)
                         },
                         style = MaterialTheme.typography.titleMedium,
                     )

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tab_send">发送</string>
+    <string name="tab_receive">接收</string>
+
+    <!-- 发送页 -->
+    <string name="sender_no_file">未选择文件</string>
+    <string name="sender_file_sizes">原始大小：%1$s    承载大小：%2$s</string>
+    <string name="sender_file_sizes_gzip">原始大小：%1$s    承载大小：%2$s    （gzip）</string>
+    <string name="sender_block_stats">分块：%1$d 块 × %2$d B</string>
+    <string name="sender_choose_file">选择文件</string>
+    <string name="sender_change_file">更换文件</string>
+    <string name="sender_frame_size_label">帧大小（含 22B 帧头）</string>
+    <string name="sender_fps_label">播放帧率</string>
+    <string name="sender_audio_title">声波发送（扬声器）</string>
+    <string name="sender_audio_desc">与二维码同时发送，双通道互补</string>
+    <string name="sender_audio_unsupported">当前帧尺寸超过 1600B，不支持声波</string>
+    <string name="audio_audible">可听声波</string>
+    <string name="audio_ultrasound">超声波</string>
+    <string name="sender_qr_placeholder">选择文件并开始后\n此处高速播放喷泉码二维码</string>
+    <string name="sender_qr_content_desc">发送中的二维码</string>
+    <string name="sender_session_line">会话 #%1$04X · 帧 %2$d · 周期 %3$d 帧</string>
+    <string name="sender_hint">接收端随时可对准屏幕，漏拍/晚加入都无需重发。</string>
+    <string name="sender_processing">处理中…</string>
+    <string name="sender_stop">停止发送</string>
+    <string name="sender_start">开始发送</string>
+
+    <!-- 发送侧错误 -->
+    <string name="error_audio_frame_too_large">当前帧尺寸过大，声波仅支持 ≤1600B（含头）帧</string>
+    <string name="error_open_file_failed">无法读取所选文件</string>
+    <string name="error_empty_file">文件为空</string>
+    <string name="error_file_too_large">文件超过 %1$s 上限</string>
+    <string name="error_read_pack_failed">读取/打包失败：%1$s</string>
+    <string name="error_select_file_first">请先选择文件</string>
+    <string name="error_too_many_blocks">块数超过 65535，请改用更大帧尺寸</string>
+
+    <!-- 接收页 -->
+    <string name="receiver_camera_permission">需要摄像头权限以扫描发送端屏幕上的二维码</string>
+    <string name="receiver_grant_camera">授予摄像头权限</string>
+    <string name="receiver_camera_title">摄像头接收</string>
+    <string name="receiver_camera_on">扫码 + 声波双通道并行</string>
+    <string name="receiver_camera_off">已关闭：纯声波接收，更省电</string>
+    <string name="receiver_audio_title">声波接收（麦克风）</string>
+    <string name="receiver_audio_off">与摄像头同时接收，双通道互补</string>
+    <string name="receiver_audio_locking">正在接收声波信号…预计 %1$d 秒后锁定（需收齐一帧全部段，每段约 3.8 秒）</string>
+    <string name="receiver_audio_receiving">正在接收声波信号…</string>
+    <string name="receiver_audio_listening">监听中，未检测到声波信号</string>
+    <string name="receiver_audio_wait_lock">等待锁定数据流…</string>
+    <string name="receiver_progress">进度 %1$d%%</string>
+    <string name="receiver_stat_new">新帧 %1$d</string>
+    <string name="receiver_stat_dup">重复 %1$d</string>
+    <string name="receiver_stat_redundant">冗余 %1$d</string>
+    <string name="receiver_session_summary">会话 0x%1$s · 块 %2$d × %3$dB · 共 %4$s</string>
+    <string name="receiver_locked">已锁定喷泉码数据流</string>
+    <string name="receiver_aim_camera">将摄像头对准发送端屏幕</string>
+    <string name="receiver_eta">预计剩余约 %1$d 秒</string>
+    <string name="receiver_session_detail">会话 #%1$04X　块数 %2$d　帧载荷 %3$dB　文件 %4$s</string>
+    <string name="receiver_frame_stats">新帧 %1$d　重复 %2$d　冗余 %3$d</string>
+    <string name="receiver_complete">接收完成并通过完整性校验</string>
+    <string name="receiver_file_name">文件名：%1$s</string>
+    <string name="receiver_file_size">大小：%1$s（光学承载 %2$s）</string>
+    <string name="receiver_file_size_gzip">大小：%1$s（光学承载 %2$s，gzip 解压）</string>
+    <string name="receiver_auto_saved">已自动保存：%1$s</string>
+    <string name="receiver_sha">SHA-256：\n</string>
+    <string name="receiver_saving">保存中…</string>
+    <string name="receiver_save_as">另存为…</string>
+    <string name="receiver_continue">继续接收</string>
+
+    <!-- 接收侧提示 -->
+    <string name="hint_mic_permission">缺少麦克风权限，无法开启声波接收</string>
+    <string name="hint_audio_start_failed">声波接收启动失败：%1$s</string>
+    <string name="hint_container_fnv_failed">容器校验失败（FNV 不匹配），正在借轮播重新接收…</string>
+    <string name="hint_sha_failed">SHA-256 校验失败，文件可能损坏，请重新接收</string>
+    <string name="hint_container_parse_failed">容器解析失败：%1$s</string>
+    <string name="hint_autosave_failed">自动保存失败：%1$s，可使用「另存为」</string>
+    <string name="hint_save_failed">保存失败：%1$s</string>
+    <string name="error_mediastore_denied">MediaStore 拒绝写入</string>
+    <string name="error_open_output_stream">无法打开输出流</string>
+
+    <!-- 线格式版本提示 -->
+    <string name="verdict_older_sender">对端正在使用旧版传输格式（v%1$d），请升级发送端。</string>
+    <string name="verdict_newer_sender">对端正在使用更新的传输格式（v%1$d），请升级本应用。</string>
+    <string name="verdict_unsupported_flags">该传输流使用了当前版本无法识别的特性，请升级本应用。</string>
+
+    <!-- 声波接收错误 -->
+    <string name="audio_mic_init_failed">麦克风初始化失败（可能被其他应用占用或不支持 48kHz）</string>
+    <string name="audio_read_failed">录音读取失败（错误码 %1$d）</string>
+</resources>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 默认语言：英文；中文见 values-zh/strings.xml -->
+    <string name="tab_send">Send</string>
+    <string name="tab_receive">Receive</string>
+
+    <!-- 发送页 -->
+    <string name="sender_no_file">No file selected</string>
+    <string name="sender_file_sizes">Original size: %1$s    Payload size: %2$s</string>
+    <string name="sender_file_sizes_gzip">Original size: %1$s    Payload size: %2$s    (gzip)</string>
+    <string name="sender_block_stats">Blocks: %1$d × %2$d B</string>
+    <string name="sender_choose_file">Choose file</string>
+    <string name="sender_change_file">Change file</string>
+    <string name="sender_frame_size_label">Frame size (incl. 22B header)</string>
+    <string name="sender_fps_label">Playback frame rate</string>
+    <string name="sender_audio_title">Audio sending (speaker)</string>
+    <string name="sender_audio_desc">Sent alongside the QR stream on a second channel</string>
+    <string name="sender_audio_unsupported">Audio is unavailable above 1600B per frame</string>
+    <string name="audio_audible">Audible</string>
+    <string name="audio_ultrasound">Ultrasound</string>
+    <string name="sender_qr_placeholder">Select a file and start\nFountain-code QR frames will play here</string>
+    <string name="sender_qr_content_desc">QR code being sent</string>
+    <string name="sender_session_line">Session #%1$04X · Frame %2$d · Cycle %3$d frames</string>
+    <string name="sender_hint">The receiver can aim at the screen at any time; missed or late frames need no retransmission.</string>
+    <string name="sender_processing">Processing…</string>
+    <string name="sender_stop">Stop sending</string>
+    <string name="sender_start">Start sending</string>
+
+    <!-- 发送侧错误 -->
+    <string name="error_audio_frame_too_large">Frame size too large; audio supports up to 1600B (including header)</string>
+    <string name="error_open_file_failed">Cannot read the selected file</string>
+    <string name="error_empty_file">File is empty</string>
+    <string name="error_file_too_large">File exceeds the %1$s limit</string>
+    <string name="error_read_pack_failed">Failed to read/pack: %1$s</string>
+    <string name="error_select_file_first">Select a file first</string>
+    <string name="error_too_many_blocks">Block count exceeds 65535; use a larger frame size</string>
+
+    <!-- 接收页 -->
+    <string name="receiver_camera_permission">Camera permission is required to scan QR codes on the sender\'s screen</string>
+    <string name="receiver_grant_camera">Grant camera permission</string>
+    <string name="receiver_camera_title">Camera receiving</string>
+    <string name="receiver_camera_on">QR scanning and audio in parallel</string>
+    <string name="receiver_camera_off">Off: audio-only receiving, saves power</string>
+    <string name="receiver_audio_title">Audio receiving (microphone)</string>
+    <string name="receiver_audio_off">Receives alongside the camera on a second channel</string>
+    <string name="receiver_audio_locking">Receiving audio… locking in about %1$d s (a full frame needs all segments, ~3.8 s each)</string>
+    <string name="receiver_audio_receiving">Receiving audio signal…</string>
+    <string name="receiver_audio_listening">Listening; no audio signal detected</string>
+    <string name="receiver_audio_wait_lock">Waiting to lock onto the data stream…</string>
+    <string name="receiver_progress">Progress %1$d%%</string>
+    <string name="receiver_stat_new">New %1$d</string>
+    <string name="receiver_stat_dup">Dup %1$d</string>
+    <string name="receiver_stat_redundant">Redundant %1$d</string>
+    <string name="receiver_session_summary">Session 0x%1$s · Blocks %2$d × %3$dB · %4$s total</string>
+    <string name="receiver_locked">Fountain stream locked</string>
+    <string name="receiver_aim_camera">Point the camera at the sender\'s screen</string>
+    <string name="receiver_eta">About %1$d s remaining</string>
+    <string name="receiver_session_detail">Session #%1$04X  Blocks %2$d  Payload %3$dB  File %4$s</string>
+    <string name="receiver_frame_stats">New %1$d  Dup %2$d  Redundant %3$d</string>
+    <string name="receiver_complete">Received and integrity verified</string>
+    <string name="receiver_file_name">File name: %1$s</string>
+    <string name="receiver_file_size">Size: %1$s (optical payload %2$s)</string>
+    <string name="receiver_file_size_gzip">Size: %1$s (optical payload %2$s, gzip decompressed)</string>
+    <string name="receiver_auto_saved">Auto-saved to: %1$s</string>
+    <string name="receiver_sha">SHA-256:\n</string>
+    <string name="receiver_saving">Saving…</string>
+    <string name="receiver_save_as">Save as…</string>
+    <string name="receiver_continue">Continue receiving</string>
+
+    <!-- 接收侧提示 -->
+    <string name="hint_mic_permission">Microphone permission is missing; cannot start audio receiving</string>
+    <string name="hint_audio_start_failed">Failed to start audio receiving: %1$s</string>
+    <string name="hint_container_fnv_failed">Container verification failed (FNV mismatch); re-receiving from the loop…</string>
+    <string name="hint_sha_failed">SHA-256 verification failed; the file may be corrupted, please receive it again</string>
+    <string name="hint_container_parse_failed">Failed to parse container: %1$s</string>
+    <string name="hint_autosave_failed">Auto-save failed: %1$s; you can use \"Save as\"</string>
+    <string name="hint_save_failed">Save failed: %1$s</string>
+    <string name="error_mediastore_denied">MediaStore refused the write</string>
+    <string name="error_open_output_stream">Cannot open the output stream</string>
+
+    <!-- 线格式版本提示 -->
+    <string name="verdict_older_sender">The sender is using an older transfer format (v%1$d). Please update the sender.</string>
+    <string name="verdict_newer_sender">The sender is using a newer transfer format (v%1$d). Please update this app.</string>
+    <string name="verdict_unsupported_flags">This stream uses features this version cannot recognize. Please update this app.</string>
+
+    <!-- 声波接收错误 -->
+    <string name="audio_mic_init_failed">Microphone initialization failed (it may be in use by another app or not support 48 kHz)</string>
+    <string name="audio_read_failed">Audio read failed (error code %1$d)</string>
+</resources>

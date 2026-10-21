@@ -2,11 +2,14 @@ package com.airscan.qr.ui
 
 import android.app.Application
 import android.content.ContentValues
+import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.airscan.qr.AppLocale
+import com.airscan.qr.R
 import com.airscan.qr.audio.AudioReceiver
 import com.airscan.qr.core.Container
 import com.airscan.qr.core.FrameHeader
@@ -15,7 +18,6 @@ import com.airscan.qr.core.LTDecoder
 import com.airscan.qr.core.audio.AudioSegment
 import com.airscan.qr.core.classifyFrame
 import com.airscan.qr.core.fnv1a
-import com.airscan.qr.core.frameVerdictMessage
 import com.airscan.qr.core.parseFrame
 import com.airscan.qr.core.streamIdentity
 import kotlinx.coroutines.Dispatchers
@@ -72,6 +74,9 @@ data class ReceiverUiState(
 )
 
 class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
+
+    // 按手机时区解析的中英文资源（Application 资源仍跟随系统语言）
+    private val ui: Context = AppLocale.localized(app)
 
     private val _state = MutableStateFlow(ReceiverUiState())
     val state: StateFlow<ReceiverUiState> = _state.asStateFlow()
@@ -159,7 +164,7 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
     private fun startAudioReceiver(): Boolean {
         if (audioReceiver != null) return true
         return try {
-            val rx = AudioReceiver(ultraSound = _state.value.audioUltraSound) { frame ->
+            val rx = AudioReceiver(ui, ultraSound = _state.value.audioUltraSound) { frame ->
                 // 声波重组帧与二维码帧格式一致，直接复用同一入口
                 onFrame(frame)
             }
@@ -181,11 +186,11 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
             true
         } catch (e: SecurityException) {
             audioReceiver = null
-            _state.update { it.copy(hint = "缺少麦克风权限，无法开启声波接收") }
+            _state.update { it.copy(hint = ui.getString(R.string.hint_mic_permission)) }
             false
         } catch (e: Exception) {
             audioReceiver = null
-            _state.update { it.copy(hint = "声波接收启动失败：${e.message}") }
+            _state.update { it.copy(hint = ui.getString(R.string.hint_audio_start_failed, e.message)) }
             false
         }
     }
@@ -197,12 +202,20 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
         audioReceiver = null
     }
 
+    /** 版本/特性不匹配提示（共享 core 的 frameVerdictMessage 固定中文，这里按界面语言输出）。 */
+    private fun verdictMessage(v: FrameVerdict): String? = when (v) {
+        is FrameVerdict.OlderSender -> ui.getString(R.string.verdict_older_sender, v.version)
+        is FrameVerdict.NewerSender -> ui.getString(R.string.verdict_newer_sender, v.version)
+        is FrameVerdict.UnsupportedFlags -> ui.getString(R.string.verdict_unsupported_flags)
+        else -> null
+    }
+
     /** 摄像头每解出一个二维码回调一次（分析线程），内部串行化。 */
     fun onFrame(bytes: ByteArray) {
         synchronized(this) {
             val verdict = classifyFrame(bytes)
             if (verdict !is FrameVerdict.Ok) {
-                val msg = frameVerdictMessage(verdict)
+                val msg = verdictMessage(verdict)
                 if (msg != null) _state.update { it.copy(hint = msg) }
                 if (verdict is FrameVerdict.Malformed) {
                     _state.update { it.copy(malformed = it.malformed + 1) }
@@ -288,7 +301,7 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
                     dupFrames = 0,
                     redundantFrames = 0,
                     progress = 0f,
-                    hint = "容器校验失败（FNV 不匹配），正在借轮播重新接收…",
+                    hint = ui.getString(R.string.hint_container_fnv_failed),
                     completed = null,
                 )
             }
@@ -297,7 +310,7 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
         try {
             val file = Container.unpackFile(assembled)
             if (!Container.verify(file)) {
-                _state.update { it.copy(hint = "SHA-256 校验失败，文件可能损坏，请重新接收") }
+                _state.update { it.copy(hint = ui.getString(R.string.hint_sha_failed)) }
                 return
             }
             _state.update {
@@ -317,7 +330,7 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
             // 接收完成即自动保存到系统 Downloads/AirFountainZulu（无需存储权限）
             autoSave(file)
         } catch (e: Exception) {
-            _state.update { it.copy(hint = "容器解析失败：${e.message}") }
+            _state.update { it.copy(hint = ui.getString(R.string.hint_container_parse_failed, e.message)) }
         }
     }
 
@@ -338,9 +351,9 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
                 val uri = resolver.insert(
                     MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
                     values,
-                ) ?: error("MediaStore 拒绝写入")
+                ) ?: error(ui.getString(R.string.error_mediastore_denied))
                 resolver.openOutputStream(uri)?.use { it.write(file.bytes) }
-                    ?: error("无法打开输出流")
+                    ?: error(ui.getString(R.string.error_open_output_stream))
                 values.clear()
                 values.put(MediaStore.MediaColumns.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)
@@ -354,7 +367,7 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } catch (e: Exception) {
                 // 自动保存失败不影响接收结果，保留手动另存入口
-                _state.update { it.copy(hint = "自动保存失败：${e.message}，可使用「另存为」") }
+                _state.update { it.copy(hint = ui.getString(R.string.hint_autosave_failed, e.message)) }
             }
         }
     }
@@ -375,7 +388,7 @@ class ReceiverViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(saving = false, hint = "保存失败：${e.message}") }
+                _state.update { it.copy(saving = false, hint = ui.getString(R.string.hint_save_failed, e.message)) }
             }
         }
     }
