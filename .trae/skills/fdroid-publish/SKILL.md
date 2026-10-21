@@ -25,7 +25,7 @@ F-Droid CI test stage 包含以下 job，**全部**需本地验证通过：
 |--------|-------------|---------|
 | `schema validation` | `fdroid readmeta` 或直接对照 schema | 无 schema 错误（Categories 值必须在 `config/categories.yml` 中） |
 | `fdroid lint` | `fdroid lint <appId>`（在 fdroiddata 目录，需 `config/`） | exit 0，无 `not valid` 等错误 |
-| `fdroid rewritemeta` | `fdroid rewritemeta <appId>` 后检查文件无变化 | 无 diff（格式完全匹配） |
+| `fdroid rewritemeta` | **必须用 buildserver 镜像内的最新 fdroidserver（master）** 运行 `fdroid rewritemeta <appId>`，再 `git diff --exit-code` | 无 diff（**本地 pip 版 fdroidserver 2.4.5 与 CI master 版输出不同，绝对不能用本地结果判定**） |
 | `check source code` | `fdroid scanner <appId>` | 无专有依赖命中（Firebase/GMS/ML Kit 等） |
 | `check apk` | `fdroid build` 后 `fdroid checkupdates --allow-dirty` 或构建产物检查 | APK 无 dependenciesInfo 签名块 |
 | `checkupdates` | `fdroid checkupdates <appId>` | 能正确检测到最新版本 |
@@ -36,7 +36,7 @@ F-Droid CI test stage 包含以下 job，**全部**需本地验证通过：
 验证矩阵（每次推送 MR 前必须全部通过）：
 - [ ] `schema validation` — Categories 等字段值合法
 - [ ] `fdroid lint` — exit 0
-- [ ] `fdroid rewritemeta` — 无 diff
+- [ ] `fdroid rewritemeta` — 用 buildserver 镜像内最新 fdroidserver master 运行，无 diff
 - [ ] `fdroid scanner` — 无专有依赖
 - [ ] `fdroid build` — `BUILD SUCCESSFUL`
 - [ ] 若启用了 `Binaries`/`AllowedAPKSigningKeys`，日志出现 `compared built binary to supplied reference binary successfully`（RB 验证通过）
@@ -44,7 +44,7 @@ F-Droid CI test stage 包含以下 job，**全部**需本地验证通过：
 
 只有全部通过后，才执行第 3 步（推送 fdroiddata + 评论请求 CI）。本地验证中发现的问题（wrapper 缺失、ZIP 需 scandelete、签名密钥不匹配、Categories 名称错误、rewritemeta 格式不对等）一律在本地修完再推。
 
-> 最高效的本地验证方式：在 `/tmp/fdroiddata` 目录中运行 `fdroid lint` + `fdroid rewritemeta` + `fdroid scanner`，在 `/tmp/fdroid-local-build` 中运行 `fdroid build`。两个目录都挂载到 Docker buildserver 镜像。
+> 最高效的本地验证方式：**`fdroid lint` / `fdroid scanner` / `fdroid rewritemeta` 一律在 buildserver Docker 镜像内用最新 fdroidserver（master）运行**，不要用本地 `pip install fdroidserver` 装的 2.4.5——`rewritemeta` 对长 URL 的折行行为在 2.4.5（压成单行）与 master（折到下一行）之间不一致，会导致 CI `rewritemeta` job 失败。`fdroid build` 也在同一镜像内运行。两个工作区都挂载到 Docker buildserver 镜像。
 
 ## 核心原则：回复维护者前必须经用户确认
 
@@ -282,7 +282,9 @@ curl -s --request POST --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
 
 教训：**模板是入场券不是保险单，但不用模板是 24 小时内必关的速死原因**（52810 存活 1 天，53108 存活约 4 小时即被关闭）。被关后按关闭留言修复描述，重新打开 MR。
 
-### 4. 本地 lint 验证 metadata（提交前必须）
+### 4. 本地 lint + rewritemeta 验证 metadata（提交前必须）
+
+**(a) `fdroid lint`** — 可用本地 pip 版 fdroidserver（lint 逻辑无版本差异）：
 
 ```bash
 python3 -m venv /tmp/fdroid_env && /tmp/fdroid_env/bin/pip install fdroidserver
@@ -296,6 +298,36 @@ cd /tmp/fdroidlint && /tmp/fdroid_env/bin/fdroid lint com.airscan.qr
 ```
 
 > 类别 `Connectivity`/`System` 报 "not valid" 是误报（本地未加载 fdroiddata categories 配置），实际是有效类别。
+
+**(b) `fdroid rewritemeta`（关键！必须用 buildserver 镜像内的最新 fdroidserver master）**
+
+CI 的 `rewritemeta` job 跑的是 fdroidserver `master` 最新版，本地 `pip install fdroidserver`（2.4.5）的折行行为与它不一致（长 URL：2.4.5 压单行，master 折下一行）。**严禁用本地 2.4.5 的 `rewritemeta` 结果作为通过依据**，必须在 buildserver 镜像内用 master 版验证：
+
+```bash
+# 复用 build 工作区（必须有 config.yml）
+WORK=/tmp/fdroid-local-build
+mkdir -p "$WORK/metadata"
+cp <项目根>/fdroid/com.airscan.qr.yml "$WORK/metadata/com.airscan.qr.yml"
+# 进入工作区的 git 仓库（若在 fdroiddata 克隆内则直接 git diff）
+cd "$WORK" && git init -q && git add -A && git commit -q -m baseline
+
+docker run --rm --platform linux/amd64 \
+  -v "$WORK:/workspace" -w /workspace \
+  registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie \
+  bash -c '
+    export fdroidserver=/home/vagrant/fdroidserver
+    rm -rf $fdroidserver
+    git clone --depth=50 https://gitlab.com/fdroid/fdroidserver.git $fdroidserver
+    export PATH="$fdroidserver:$PATH"
+    export PYTHONPATH="$fdroidserver:$fdroidserver/examples"
+    fdroid rewritemeta com.airscan.qr
+  '
+
+# 检查是否还有 diff：无输出 = 通过；有输出 = 以镜像重写后的文件为准重新提交
+git -C "$WORK" diff --exit-code metadata/com.airscan.qr && echo "rewritemeta OK" || echo "rewritemeta changed — commit the rewritten file"
+```
+
+若 `git diff` 有输出，说明当前 metadata 格式与 master 版 `rewritemeta` 输出不一致：直接采用镜像重写后的文件内容（`$WORK/metadata/com.airscan.qr.yml`）覆盖项目里的 `fdroid/com.airscan.qr.yml`，再提交。**不要手动改格式去"猜"CI 期望**。
 
 ### 5. 本地 buildserver 验证 build（强烈推荐，不依赖 GitLab CI）
 
@@ -362,7 +394,7 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 8. **yamllint `comments-indentation`**：`prebuild:` 下的注释必须与 `- sed` 列表项同级缩进，不能放在父级缩进，否则 `fdroid lint` 报 `comment not indented like content`
 9. **GitLab 身份验证 → 主动请求维护者触发 CI**：免费账户未绑信用卡时 fork 的 CI pipeline 会 0 job 立即失败（`Identity verification is required in order to run CI jobs`），即使账户有 400 分钟 quota 也无法使用。**不要干等或反复重试**——成功先例 MR 52314 的做法：在 MR 描述 Pipeline 项直接写明原因并请求 "Could a maintainer please trigger the CI?"，维护者（linsui）响应很快，每次修复后再评论礼貌请求重新触发即可。**替代方案**：用本地 buildserver Docker 镜像验证 build（见流程第 5 步），不依赖 GitLab CI
 10. **本地 lint 必跑**：提交前用 `fdroid lint com.airscan.qr` 验证 metadata（见流程第 4 步）。类别 "not valid" 是误报
-11. **`rewritemeta` 折行因 ruamel.yaml 版本而异**：长字段（`Binaries`/`AllowedAPKSigningKeys`）的折行方式，本地新版 ruamel.yaml（0.19.1）与 CI 的 Debian 版（0.18.10）不同——以 CI job `fdroid rewritemeta` 的 diff 输出为准逐字节对齐，不要凭本地结果猜
+11. **`fdroid rewritemeta` 必须用 buildserver 镜像内的最新 fdroidserver 验证**：CI 的 `fdroid rewritemeta` job 运行的是 fdroidserver `master` 最新版，而本地 `pip install fdroidserver` 装的是已发布版（如 2.4.5）。两者对长字段（`Binaries` URL、`AllowedAPKSigningKeys`）的折行行为不一致：2.4.5 会把长 URL **压成单行**，master 版会把它**折到下一行（缩进 2 空格）**。本地用 2.4.5 跑 `rewritemeta` 显示无 diff，推到 CI 反而产生 diff 导致 job 失败。**正确做法**：在 buildserver 镜像内 clone 最新 master 跑 `fdroid rewritemeta <appId>`，以其输出为准提交，再 `git diff --exit-code` 确认无变化。详见流程第 4 步的 rewritemeta 验证块。
 12. **`.gitattributes` 强制 LF**：Windows 检出会把文本资产转成 CRLF，导致 CI 构建产物与本地不一致（52314 的首次 RB 失败根因是字体 license 文件行尾差异）。确保仓库根 `.gitattributes` 含 `* text=auto eol=lf`
 13. **关闭 AGP 的 Dependency metadata 签名块**：AGP 默认向 APK 写入 Google Play 的 dependency 签名块，`check apk` job 会失败。在 `app/build.gradle` 的 `android {}` 内加：
     ```groovy
@@ -377,7 +409,7 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 17. **aapt2 daemon 启动死锁**：本地 Gradle 构建偶尔出现多个 WorkerExecutor 线程卡在 `Aapt2DaemonImpl.startProcess`（0 CPU、无产出）。处理：杀 gradlew + aapt2 进程，`gradle --stop`，清理 `~/.gradle/caches/**/*.lock`，用 `--no-daemon` 重跑
 18. **评论/改 MR 前必读全部互动**：每次要发新评论或修改 MR 前，必须先拉取该 MR 的所有 notes 通读（API 见流程 (e) 部分），确认维护者最新要求和已讨论过的点。**禁止不看上下文就发评论**——例如维护者刚要求加 `Binaries`/`AllowedAPKSigningKeys`，你却还在重复请求触发 CI，会显得没在跟进讨论。新评论应直接回应维护者最新一条评论的具体要求
 19. **维护者要求 Squash commits 时压缩为单提交**：F-Droid 偏好每个 App MR 只有一个提交。收到 "Please enable Squash commits" 时，两步都做：① 本地把分支压缩成单提交（`git reset --hard origin/master` 后重新 `git add` + `git commit`，再 `--force` 推到 fork 分支）；② 通过 API 启用 MR 设置 `PUT /projects/36528/merge_requests/<iid>` body `{"squash": true, "squash_on_merge": true}`。验证：MR commits 接口只剩 1 条
-20. **`fdroid rewritemeta` 格式规范必须匹配**：CI 的 `fdroid rewritemeta` job 会检查 metadata 格式，不匹配则失败。本地必须运行 `fdroid rewritemeta <appId>` 并确认无 diff。关键格式规则（来自 ruamel.yaml 自动排序/折行）：① Categories 用 `config/categories.yml` 中的精确名称（如 `File Transfer` 带空格，不是 `FileTransfer`），且按字母序排列；② 超长字段（`Binaries` URL 等）自动折行到下一行（缩进 2 空格）；③ `AllowedAPKSigningKeys` 放在 `Builds` 块之后、`AutoUpdateMode` 之前（不是 `CurrentVersionCode` 之后）。验证方法：在 fdroiddata 目录中运行 `fdroid rewritemeta`，若文件无变化则通过
+20. **`fdroid rewritemeta` 格式规范必须匹配**：CI 的 `fdroid rewritemeta` job 会检查 metadata 格式，不匹配则失败。**必须用 buildserver 镜像内最新 fdroidserver（master）运行**，不能用本地 pip 版 2.4.5（见坑 11）。关键格式规则（来自 ruamel.yaml 自动排序/折行）：① Categories 用 `config/categories.yml` 中的精确名称（如 `File Transfer` 带空格，不是 `FileTransfer`），且按字母序排列；② 超长字段（`Binaries` URL 等）在 master 版会自动折行到下一行（缩进 2 空格，`Binaries:` 独占一行带行尾空格）；③ `AllowedAPKSigningKeys` 放在 `Builds` 块之后、`AutoUpdateMode` 之前（不是 `CurrentVersionCode` 之后）。验证方法：在 buildserver 镜像内运行 `fdroid rewritemeta <appId>` 后 `git diff --exit-code`，无 diff 才通过
 
 ## 进阶：可复现构建（Reproducible Builds）
 
@@ -408,7 +440,7 @@ CI 中 scanner job 用 [fdroid-suss](https://gitlab.com/fdroid/fdroid-suss)（Su
 - [ ] `fastlane/metadata/android/en-US/` 含 short_description（<80 字符无尾点）、full_description、icon.png、phoneScreenshots、changelogs/<versionCode>.txt
 - [ ] tag 名 = versionName，指向正确提交；GitHub 最新 Release 与 yml commit 一致
 - [ ] `fdroid/com.airscan.qr.yml` 的 Builds 块 commit 为完整 40 位哈希、versionName/versionCode 与 tag 一致；`scandelete` 覆盖所有非源码 ZIP/JAR；首次收录只保留最新一个 Builds 块
-- [ ] `fdroid lint com.airscan.qr` 本地通过（类别 not valid 可忽略）；`fdroid rewritemeta` 无 diff
+- [ ] `fdroid lint com.airscan.qr` 本地通过（类别 not valid 可忽略）；`fdroid rewritemeta` 用 buildserver 镜像内最新 fdroidserver master 运行无 diff
 - [ ] **本地 buildserver Docker 验证 `fdroid build` 通过**（见流程第 5 步），出现 `BUILD SUCCESSFUL`
 - [ ] `.gitattributes` 含 `* text=auto eol=lf`；`dependenciesInfo { includeInApk = false; includeInBundle = false }` 已配置
 - [ ] MR 标题、描述、评论全英文，按官方 App inclusion 模板填写（每勾选附本项目具体证据）
